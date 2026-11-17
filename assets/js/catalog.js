@@ -1,13 +1,13 @@
-/* Tesser — Demo Catalogue & Provenance Schema
+/* Mweshi — Demo Catalogue & Provenance Schema
  *
  * Uses official Creative Commons (CC-BY) open films produced in Amsterdam by
  * the Dutch production team at Blender Foundation / Blender Institute, structured
  * into multi-episode seasons, alternate timeline branches, vertical 9:16 Reels,
- * and Pilot Season entries to demonstrate every feature of the Tesser platform.
+ * and Pilot Season entries to demonstrate every feature of the Mweshi platform.
  *
  * Every entry includes:
  *   1. Honest CC-BY attribution and actual human crew credits (zero fake AI claims).
- *   2. A toggleable "AI Series Ledger Spec" showing how Tesser documents Video Models,
+ *   2. A toggleable "AI Series Ledger Spec" showing how Mweshi documents Video Models,
  *      Voice Direction, Human Edit Hours, and C2PA Content Credentials on AI series.
  */
 
@@ -37,14 +37,14 @@
       synopsis:
         "In a fractured future Amsterdam, an aging scientist and a squad of resistance fighters stage a desperate neural-memory experiment inside the shielded Oude Kerk dome—hoping to rewrite the single human heartbreak that triggered a machine uprising forty years earlier.",
       synopsisExtended:
-        "Produced in Amsterdam by the Dutch team at Blender Institute (Project Mango) under a Creative Commons Attribution 3.0 license. Split here into four serialized episodes, an alternate tactical timeline, and vertical discovery reels to demonstrate Tesser's full episodic architecture before launch.",
+        "Produced in Amsterdam by the Dutch team at Blender Institute (Project Mango) under a Creative Commons Attribution 3.0 license. Split here into four serialized episodes, an alternate tactical timeline, and vertical discovery reels to demonstrate Mweshi's full episodic architecture before launch.",
       badges: ["13+", "HD", "CC-BY", "C2PA SPEC", "CC", "SDH"],
       streamUrl: "https://archive.org/download/Tears-of-Steel/tears_of_steel_720p.mp4",
       trailerUrl: "https://archive.org/download/Tears-of-Steel/tears_of_steel_720p.mp4",
       pilot: {
         enabled: true,
         stage: "Season 2 Concept Demo",
-        pitch: "New Amsterdam Containment — Vote to test Tesser's community Pilot Season greenlight mechanic.",
+        pitch: "New Amsterdam Containment — Vote to test Mweshi's community Pilot Season greenlight mechanic.",
         baselineVotes: 0
       },
       episodes: [
@@ -128,7 +128,7 @@
       madeWith: {
         isStandInDemo: true,
         demoNotice:
-          "Stand-in architecture demo: Tears of Steel (2012) is live-action cinema with Blender open-source VFX—not AI-generated. Used under CC BY 3.0 to demonstrate Tesser's episodic player, inline progress, and provenance ledger.",
+          "Stand-in architecture demo: Tears of Steel (2012) is live-action cinema with Blender open-source VFX—not AI-generated. Used under CC BY 3.0 to demonstrate Mweshi's episodic player, inline progress, and provenance ledger.",
         actual: [
           { label: "Production Team", value: "Blender Foundation / Blender Institute, Amsterdam (Project Mango)" },
           { label: "Director & Writer", value: "Ian Hubert" },
@@ -175,14 +175,14 @@
       synopsis:
         "On a desolate island, a miserable sheep named Franck meets a smooth-talking stranger named Victor—who steps out of the fog offering infinite lifetimes inside an interdimensional laundromat.",
       synopsisExtended:
-        "Created in Amsterdam by the Blender Institute (Project Gooseberry) expressly as 'First Cycle', the pilot episode for a serialized anthology feature/series. Presented here in three episodic chapters to showcase Tesser's Pilot Season greenlight flow.",
+        "Created in Amsterdam by the Blender Institute (Project Gooseberry) expressly as 'First Cycle', the pilot episode for a serialized anthology feature/series. Presented here in three episodic chapters to showcase Mweshi's Pilot Season greenlight flow.",
       badges: ["13+", "1080p", "CC-BY", "PILOT", "CC", "SDH"],
       streamUrl: "https://archive.org/download/CosmosLaundromatFirstCycle/Cosmos%20Laundromat%20-%20First%20Cycle%20%281080p%29.mp4",
       trailerUrl: "https://archive.org/download/CosmosLaundromatFirstCycle/Cosmos%20Laundromat%20-%20First%20Cycle%20%281080p%29.mp4",
       pilot: {
         enabled: true,
         stage: "Second Cycle Pilot Vote",
-        pitch: "First Cycle was built by the Dutch Gooseberry team as a series pilot. Tap Vote to test Tesser's audience greenlight signal.",
+        pitch: "First Cycle was built by the Dutch Gooseberry team as a series pilot. Tap Vote to test Mweshi's audience greenlight signal.",
         baselineVotes: 0
       },
       episodes: [
@@ -285,14 +285,14 @@
       synopsis:
         "A lone warrior crosses frozen peaks, desert wastes, and volcanic caverns in search of Scales—the fledgling dragon she nursed back to health before it was torn from her hands.",
       synopsisExtended:
-        "Produced in Amsterdam by the Blender Foundation (Project Durian) under Creative Commons Attribution 3.0. Structured here into a three-part miniseries with its official theatrical trailer to demonstrate Tesser's multi-episode continuity.",
+        "Produced in Amsterdam by the Blender Foundation (Project Durian) under Creative Commons Attribution 3.0. Structured here into a three-part miniseries with its official theatrical trailer to demonstrate Mweshi's multi-episode continuity.",
       badges: ["13+", "2K", "CC-BY", "CC", "SDH", "AD"],
       streamUrl: "https://archive.org/download/Sintel/sintel-2048-stereo.mp4",
       trailerUrl: "https://download.blender.org/durian/trailer/sintel_trailer-720p.mp4",
       pilot: {
         enabled: true,
         stage: "World Anthology Demo",
-        pitch: "Chronicles of Ishtar — Test how viewers signal demand for a full fantasy world order on Tesser.",
+        pitch: "Chronicles of Ishtar — Test how viewers signal demand for a full fantasy world order on Mweshi.",
         baselineVotes: 0
       },
       episodes: [

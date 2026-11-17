@@ -1,4 +1,4 @@
-/* Tesser — Browser persistence
+/* Mweshi — Browser persistence
  *
  * Continue Watching, watchlist, pilot votes, creator pitches, and private
  * screener links are saved in localStorage (`tesser.state.v2`).

@@ -21,10 +21,10 @@
     var fd = new FormData(form);
     var formName = fd.get("form-name") || "contact";
     var subject = formName === "book-call"
-      ? "Tesser \u2014 15-minute creator chat"
+      ? "Mweshi \u2014 15-minute creator chat"
       : formName === "waitlist"
-      ? "Tesser \u2014 viewer waitlist"
-      : "Tesser \u2014 site feedback";
+      ? "Mweshi \u2014 viewer waitlist"
+      : "Mweshi \u2014 site feedback";
     var lines = [];
     if (fd.get("name")) lines.push("Name / channel: " + fd.get("name"));
     if (fd.get("email")) lines.push("Email: " + fd.get("email"));
