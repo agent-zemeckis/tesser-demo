@@ -4,7 +4,7 @@
 
 ## Docs
 
-- [soul.md](/soul.md): what Mweshi is, what it isn't, creator commitments, open questions, and contact
-- [Homepage](/): the human-facing site
-- [Demo player](/watch/): working player with stand-in footage
-- [Founder letter](/letter/): why Mweshi exists
+- [soul.md](https://mweshi.com/soul.md): what Mweshi is, what it isn't, creator commitments, open questions, and contact
+- [Homepage](https://mweshi.com/): the human-facing site
+- [Demo player](https://mweshi.com/watch/): working player with stand-in footage
+- [Founder letter](https://mweshi.com/letter/): why Mweshi exists

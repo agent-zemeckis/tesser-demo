@@ -41,7 +41,7 @@ Mweshi has **not** announced revenue-share percentages, grants, or a release dat
 
 ## Pages
 
-- `https://agent-zemeckis.github.io/tesser-demo/`: homepage, for creators first
-- `https://agent-zemeckis.github.io/tesser-demo/watch/`: demo player
-- `https://agent-zemeckis.github.io/tesser-demo/letter/`: founder letter
-- `https://agent-zemeckis.github.io/tesser-demo/soul.md`: this file
+- `https://mweshi.com/`: homepage, for creators first
+- `https://mweshi.com/watch/`: demo player
+- `https://mweshi.com/letter/`: founder letter
+- `https://mweshi.com/soul.md`: this file
