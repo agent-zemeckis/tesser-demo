@@ -1,4 +1,4 @@
-/* Tesser site styles. Depends on tokens.css. */
+/* Mweshi site styles. Depends on tokens.css. */
 
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }

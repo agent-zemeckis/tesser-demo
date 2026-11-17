@@ -1,4 +1,4 @@
-/* Tesser — Apple TV × Netflix Reels Streaming Application Controller
+/* Mweshi — Apple TV × Netflix Reels Streaming Application Controller
  *
  * Views & Routes:
  *   #/                 -> Apple TV Home Stage (Hero Showcase + Continue Watching 16:9 + 2:3 Posters + Reels Rail + Pilots)
@@ -190,10 +190,10 @@
       synopsis:
         String(
           data.synopsis ||
-            `Private Apple TV-style series stage prepared by Tesser to preview how "${data.title}" plays as an episodic show with sequential chapters and full Made With provenance.`
+            `Private Apple TV-style series stage prepared by Mweshi to preview how "${data.title}" plays as an episodic show with sequential chapters and full Made With provenance.`
         ).slice(0, 500),
       synopsisExtended:
-        "Unlisted preview generated for creator review only. Tesser never lists or monetizes creator work without explicit creator agreement.",
+        "Unlisted preview generated for creator review only. Mweshi never lists or monetizes creator work without explicit creator agreement.",
       badges: ["UNLISTED", "HD", "C2PA READY", "CREATOR OWNED"],
       youtubeId: ytId,
       streamUrl: isDirectMp4 ? data.video : "https://archive.org/download/Tears-of-Steel/tears_of_steel_720p.mp4",
@@ -211,14 +211,14 @@
         streamUrl: isDirectMp4 ? data.video : "https://archive.org/download/Tears-of-Steel/tears_of_steel_720p.mp4",
         synopsis:
           idx === 0
-            ? `Primary pilot stream for ${data.creator || "creator"} mounted inside Tesser's cinema player.`
+            ? `Primary pilot stream for ${data.creator || "creator"} mounted inside Mweshi's cinema player.`
             : "Reserved sequential episode slot demonstrating automatic Up-Next continuity."
       })),
       alternateEpisodes: [],
       madeWith: {
         isStandInDemo: false,
         demoNotice:
-          "Unlisted Creator Screener: This page is visible only via this private URL to show how your series looks on Tesser. Zero rights are claimed.",
+          "Unlisted Creator Screener: This page is visible only via this private URL to show how your series looks on Mweshi. Zero rights are claimed.",
         actual: [
           { label: "Creator / Showrunner", value: String(data.creator || "Creator").slice(0, 100) },
           { label: "Toolchain Declared", value: String(data.tools || "Creator's AI + Editorial Pipeline (editable upon onboarding)").slice(0, 200) },
@@ -290,7 +290,7 @@
       <a class="card-2x3" href="#/series/${esc(series.slug)}" aria-label="${esc(series.title)} — ${series.episodes.length} episodes">
         <img src="${esc(series.poster)}" alt="${esc(series.title)} poster" loading="lazy">
         <div class="card-2x3-overlay">
-          <span class="card-corner-brand">Tesser</span>
+          <span class="card-corner-brand">Mweshi</span>
           <span class="card-2x3-footer tabular">${series.episodes.length} Episodes &middot; ${esc(series.quality)}</span>
         </div>
       </a>
@@ -307,7 +307,7 @@
       <div class="card-16x9" role="group" aria-label="Continue watching ${esc(series.title)}">
         <img src="${esc(ep.thumb || series.heroImage)}" alt="${esc(series.title)} ${esc(ep.title)}" loading="lazy">
         <div class="card-16x9-scrim">
-          <span class="card-corner-brand">Tesser</span>
+          <span class="card-corner-brand">Mweshi</span>
           <div>
             <div class="card-16x9-title">${esc(series.title)}</div>
             <div class="card-16x9-bottom tabular">
@@ -328,7 +328,7 @@
     return `
       <footer class="app-footer">
         <div>
-          <strong style="color:var(--ink);">Tesser</strong> &middot; Serialized AI Cinema &middot; Demo footage courtesy of Blender Foundation Amsterdam (CC-BY, non-AI stand-in architecture demo).
+          <strong style="color:var(--ink);">Mweshi</strong> &middot; Serialized AI Cinema &middot; Demo footage courtesy of Blender Foundation Amsterdam (CC-BY, non-AI stand-in architecture demo).
         </div>
         <div class="app-footer-links">
           <a href="#/creators">For Creators &amp; Screener Studio</a>
@@ -458,7 +458,7 @@
             <a href="#/series/${esc(activeHero.slug)}">${esc(activeHero.title)}</a>
           </h1>
           <p class="hero-meta-line">
-            <span class="tesser-mini-badge">Tesser</span>
+            <span class="tesser-mini-badge">Mweshi</span>
             <span>&middot;</span>
             <span>${esc(activeHero.category)}</span>
           </p>
@@ -561,7 +561,7 @@
       if (detailTab === "alt" && series.alternateEpisodes && series.alternateEpisodes.length) {
         return `
           <p style="font-size:var(--text-xs);color:var(--ink-muted);margin:0 0 1rem;">
-            Alternate Timeline demonstrates how AI-native creators on Tesser publish parallel cuts, director branches, or alternate endings cleanly alongside Season 1.
+            Alternate Timeline demonstrates how AI-native creators on Mweshi publish parallel cuts, director branches, or alternate endings cleanly alongside Season 1.
           </p>
           <div class="episode-grid">
             ${series.alternateEpisodes.map((ep) => renderEpisodeCard(series, ep, prog, true)).join("")}
@@ -625,7 +625,7 @@
             <span class="hero-eyebrow-pill">${esc(series.eyebrow)}</span>
             <h1 class="hero-wordmark" data-style="${esc(series.wordmarkStyle)}">${esc(series.title)}</h1>
             <p class="hero-meta-line" style="margin-bottom:1.1rem;">
-              <span class="tesser-mini-badge">Tesser</span>
+              <span class="tesser-mini-badge">Mweshi</span>
               <span>&middot;</span>
               <span>${esc(series.category)}</span>
             </p>
@@ -696,7 +696,7 @@
               <div class="htw-app-icon"><span style="color:var(--provenance);">●</span>&nbsp;T</div>
               <div>
                 <div style="font-size:var(--text-sm);font-weight:var(--w-semibold);">
-                  ${series.isUnlistedScreener ? "Private Unlisted Creator Screener" : "Stream on Tesser · Open Architecture Demo"}
+                  ${series.isUnlistedScreener ? "Private Unlisted Creator Screener" : "Stream on Mweshi · Open Architecture Demo"}
                 </div>
                 <div style="font-size:var(--text-xs);color:var(--ink-muted);">
                   ${
@@ -714,7 +714,7 @@
             }
           </div>
 
-          <!-- Tesser's Signature "Made With & Provenance" Ledger (Screenshots #2 & #3 Typography) -->
+          <!-- Mweshi's Signature "Made With & Provenance" Ledger (Screenshots #2 & #3 Typography) -->
           <section class="ledger-section" aria-labelledby="ledger-madewith">
             <div class="ledger-head">
               <h2 class="ledger-title" id="ledger-madewith">Made With &amp; Provenance</h2>
@@ -731,7 +731,7 @@
             <p style="margin:0 0 1.15rem;padding:0.75rem 0.95rem;border-radius:var(--r-sm);background:var(--surface-1);border-left:2px solid var(--provenance);font-size:var(--text-xs);color:var(--ink-secondary);line-height:1.5;">
               ${
                 detailLedgerMode === "aispec"
-                  ? "Previewing Tesser's native AI Series Provenance Schema: every AI-made show on Tesser credits both the human filmmakers (writing, voice, editorial hours) and the exact generative models used."
+                  ? "Previewing Mweshi's native AI Series Provenance Schema: every AI-made show on Mweshi credits both the human filmmakers (writing, voice, editorial hours) and the exact generative models used."
                   : esc(series.madeWith.demoNotice)
               }
             </p>
@@ -856,7 +856,7 @@
                   <div class="reel-overlay">
                     <div class="reel-info">
                       <div class="reel-tag">
-                        <span class="tesser-mini-badge">Tesser</span>
+                        <span class="tesser-mini-badge">Mweshi</span>
                         <span>&middot;</span>
                         <span>${esc(reel.tag)}</span>
                       </div>
@@ -990,7 +990,7 @@
         <div class="glass-panel">
           <h2>Making a serialized AI pilot?</h2>
           <p style="color:var(--ink-secondary);font-size:var(--text-sm);max-width:42rem;margin:0 0 1rem;">
-            Keep 100% of your IP, keep posting short vertical hooks on TikTok, Reels, and YouTube Shorts, and make Tesser the home where viewers binge full episodes in sequence.
+            Keep 100% of your IP, keep posting short vertical hooks on TikTok, Reels, and YouTube Shorts, and make Mweshi the home where viewers binge full episodes in sequence.
           </p>
           <a class="btn-play-white" style="height:2.65rem;font-size:var(--text-sm);" href="#/creators">Submit a Pilot or Preview Screener</a>
         </div>
@@ -1149,7 +1149,7 @@
         <span class="hero-eyebrow-pill">Founding Cohort &middot; Co-Written Terms</span>
         <h1 class="page-title">A cinema home for serialized AI storytellers.</h1>
         <p class="page-lede">
-          Short-form feeds reward five-second hooks, then bury Episode 3 behind unrelated clips. Tesser gives your world an Apple TV-grade series page: seasons in sequence, vertical Reels that funnel straight into Episode 1, and transparent provenance.
+          Short-form feeds reward five-second hooks, then bury Episode 3 behind unrelated clips. Mweshi gives your world an Apple TV-grade series page: seasons in sequence, vertical Reels that funnel straight into Episode 1, and transparent provenance.
         </p>
 
         <div class="creator-grid" style="margin-bottom:2rem;">
@@ -1194,7 +1194,7 @@
                 <input type="text" name="toolsUsed" maxlength="400" placeholder="e.g. Kling 2.0, Runway, DaVinci Resolve, human voice cast">
               </label>
               <label>Notes or Preferred 15-Min Chat Window
-                <textarea name="notes" maxlength="1500" placeholder="Tell Victor about your series arc, episode count, or what terms would make Tesser worth your time."></textarea>
+                <textarea name="notes" maxlength="1500" placeholder="Tell Victor about your series arc, episode count, or what terms would make Mweshi worth your time."></textarea>
               </label>
               <button class="btn-play-white" type="submit" style="width:100%;">Send to Founding Slate</button>
             </form>
@@ -1308,7 +1308,7 @@
         const base = `${window.location.origin}${window.location.pathname}`;
         const fullUrl = `${base}?screener=${token}#/series/screener`;
 
-        const dmCopy = `Hey ${spec.creator} — been watching "${spec.title}" and loved the worldbuilding. I'm building Tesser (an Apple TV-style home strictly for serialized AI shows so episodes play in order instead of getting buried in short-form feeds). Put together a private unlisted preview of how "${spec.title}" looks on a cinema stage: ${fullUrl} — zero claim on your work, just wanted to show you and get your take if you have 2 mins.`;
+        const dmCopy = `Hey ${spec.creator} — been watching "${spec.title}" and loved the worldbuilding. I'm building Mweshi (an Apple TV-style home strictly for serialized AI shows so episodes play in order instead of getting buried in short-form feeds). Put together a private unlisted preview of how "${spec.title}" looks on a cinema stage: ${fullUrl} — zero claim on your work, just wanted to show you and get your take if you have 2 mins.`;
 
         Store.saveLocalScreener({
           slug: `screener-${Date.now()}`,

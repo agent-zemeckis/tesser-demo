@@ -39,9 +39,9 @@
   }
 
   function caption(h) {
-    if (h >= 5 && h < 12) return "Good morning. Tesser is a fold between worlds; the screening room warms up after dusk.";
-    if (h >= 12 && h < 17.5) return "Good afternoon. Tesser is a fold between worlds; the screening room warms up after dusk.";
-    if (h >= 17.5 && h < 22.5) return "Good evening. The light is down where you are. Tesser is open for the night\u2019s run.";
+    if (h >= 5 && h < 12) return "Good morning. Mweshi is a fold between worlds; the screening room warms up after dusk.";
+    if (h >= 12 && h < 17.5) return "Good afternoon. Mweshi is a fold between worlds; the screening room warms up after dusk.";
+    if (h >= 17.5 && h < 22.5) return "Good evening. The light is down where you are. Mweshi is open for the night\u2019s run.";
     return "It\u2019s late where you are. The dusk light has set. The episodes haven\u2019t.";
   }
 
