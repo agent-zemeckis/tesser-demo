@@ -1,0 +1,1335 @@
+/* Tesser — Apple TV × Netflix Reels Application Styles
+   Depends on tokens.css. Built with strict anti-AI-slop discipline. */
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html {
+  color-scheme: dark;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: var(--text-base);
+  line-height: 1.45;
+  overflow-x: hidden;
+  padding-bottom: calc(var(--dock-offset) + env(safe-area-inset-bottom, 0px));
+}
+
+img, video, svg { display: block; max-width: 100%; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: 0; padding: 0; }
+a { color: inherit; text-decoration: none; }
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+
+/* ==========================================================================
+   1. Navigation Chrome: Desktop Top Glass Bar + Mobile Floating Bottom Dock
+   ========================================================================== */
+
+.top-chrome {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem var(--gutter);
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.68) 0%, rgba(0, 0, 0, 0) 100%);
+}
+
+.top-chrome > * { pointer-events: auto; }
+
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: var(--w-semibold);
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--r-pill);
+  background: rgba(20, 20, 22, 0.55);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 0.5px solid var(--glass-border);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.brand-lockup:hover { background: rgba(38, 38, 42, 0.78); }
+.brand-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--provenance);
+}
+
+.desktop-pills {
+  display: none;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.28rem;
+  border-radius: var(--r-pill);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 0.5px solid var(--glass-border);
+}
+
+.nav-pill {
+  padding: 0.45rem 1rem;
+  border-radius: var(--r-pill);
+  font-size: var(--text-sm);
+  font-weight: var(--w-medium);
+  color: var(--ink-secondary);
+  transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+.nav-pill:hover { color: var(--ink); }
+.nav-pill[aria-current="page"] {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--ink);
+  font-weight: var(--w-semibold);
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.glass-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 2.35rem;
+  padding: 0 0.9rem;
+  border-radius: var(--r-pill);
+  font-size: var(--text-xs);
+  font-weight: var(--w-medium);
+  color: var(--ink-secondary);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 0.5px solid var(--glass-border);
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.glass-chip:hover { background: rgba(44, 44, 48, 0.85); color: var(--ink); }
+
+.glass-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 2.65rem;
+  height: 2.65rem;
+  border-radius: 50%;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 0.5px solid var(--glass-border-strong);
+  color: var(--ink);
+  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.glass-icon-btn:hover { background: rgba(52, 52, 56, 0.88); }
+.glass-icon-btn svg { width: 1.15rem; height: 1.15rem; }
+
+/* Apple TV Floating Liquid-Glass Bottom Dock (Mobile & Tablet, Screenshots #2-#5) */
+.bottom-dock-wrap {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: calc(0.85rem + env(safe-area-inset-bottom, 0px));
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 0 1rem;
+  pointer-events: none;
+}
+
+.bottom-dock {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  flex: 1;
+  max-width: 22rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: var(--r-pill);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 0.5px solid var(--glass-border-strong);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65);
+}
+
+.dock-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.18rem;
+  padding: 0.38rem 0.4rem;
+  border-radius: var(--r-pill);
+  color: var(--ink-muted);
+  font-size: 0.68rem;
+  font-weight: var(--w-medium);
+  transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+.dock-tab svg { width: 1.22rem; height: 1.22rem; }
+.dock-tab[aria-current="page"] {
+  color: var(--active-blue);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dock-search-btn {
+  pointer-events: auto;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 0.5px solid var(--glass-border-strong);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65);
+  color: var(--ink);
+}
+.dock-search-btn[aria-current="page"] { color: var(--active-blue); }
+.dock-search-btn svg { width: 1.25rem; height: 1.25rem; }
+
+@media (min-width: 56rem) {
+  body { padding-bottom: 3rem; }
+  .desktop-pills { display: inline-flex; }
+  .bottom-dock-wrap { display: none; }
+}
+
+/* ==========================================================================
+   2. Hero Showcase Stage (Screenshot #5 — Nocturne)
+   ========================================================================== */
+
+.hero-stage {
+  position: relative;
+  width: 100%;
+  min-height: clamp(33rem, 74vh, 48rem);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+  background: #050507;
+}
+
+.hero-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 22%;
+  opacity: 0.92;
+  transition: opacity 420ms var(--ease-out);
+}
+
+/* Pure optical cinema vignette — strictly neutral black for legibility */
+.hero-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(90% 65% at 50% 30%, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.36) 100%),
+    linear-gradient(180deg,
+      rgba(0, 0, 0, 0.48) 0%,
+      rgba(0, 0, 0, 0.04) 24%,
+      rgba(0, 0, 0, 0.25) 54%,
+      rgba(0, 0, 0, 0.88) 84%,
+      #000000 100%);
+  pointer-events: none;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+  width: min(100% - 2 * var(--gutter), 44rem);
+  text-align: center;
+  padding-bottom: 1.65rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hero-eyebrow-pill {
+  display: inline-block;
+  padding: 0.22rem 0.65rem;
+  border-radius: var(--r-pill);
+  background: rgba(28, 28, 30, 0.68);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 0.5px solid var(--glass-border);
+  font-size: var(--text-xs);
+  font-weight: var(--w-semibold);
+  color: var(--ink);
+  margin-bottom: 0.75rem;
+}
+
+.hero-wordmark {
+  font-size: var(--text-hero);
+  font-weight: var(--w-semibold);
+  line-height: 0.98;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin: 0 0 0.7rem;
+  color: #ffffff;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.65);
+}
+.hero-wordmark[data-style="serif"] {
+  font-family: var(--font-serif);
+  font-weight: var(--w-regular);
+  letter-spacing: 0.03em;
+  text-transform: none;
+  font-size: clamp(2.75rem, 6vw, 4.85rem);
+}
+
+.hero-meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  font-size: var(--text-sm);
+  color: var(--ink-secondary);
+  margin: 0 0 0.3rem;
+}
+
+.tesser-mini-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  font-weight: var(--w-semibold);
+  font-size: var(--text-xs);
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.tesser-mini-badge::before {
+  content: "";
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--provenance);
+}
+
+.hero-subline {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  margin: 0 0 1.25rem;
+}
+
+.hero-cta-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 1.35rem;
+}
+
+/* Tactile Apple TV Solid White Pill Button */
+.btn-play-white {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  height: 2.95rem;
+  min-width: 9.75rem;
+  padding: 0 1.45rem;
+  border-radius: var(--r-pill);
+  background: var(--cta-bg);
+  color: var(--cta-ink);
+  font-size: var(--text-base);
+  font-weight: var(--w-semibold);
+  transition: background-color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
+}
+.btn-play-white:hover { background: var(--cta-hover); }
+.btn-play-white svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+
+/* Inline Resume Track inside the White Play Pill (Screenshot #4 — Matchbox) */
+.inline-progress-track {
+  display: inline-flex;
+  align-items: center;
+  width: 3.1rem;
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, 0.18);
+  position: relative;
+  overflow: visible;
+}
+.inline-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: #000000;
+  position: relative;
+}
+.inline-progress-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #000000;
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+
+.btn-circle-glass {
+  width: 2.95rem;
+  height: 2.95rem;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  background: rgba(44, 44, 48, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 0.5px solid var(--glass-border-strong);
+  color: var(--ink);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.btn-circle-glass:hover { background: rgba(68, 68, 74, 0.85); }
+.btn-circle-glass[aria-pressed="true"] {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+.btn-circle-glass svg { width: 1.2rem; height: 1.2rem; }
+
+.hero-dots {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+.hero-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.32);
+  transition: width var(--dur-med) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+.hero-dot[aria-selected="true"] {
+  width: 18px;
+  background: #ffffff;
+}
+
+/* ==========================================================================
+   3. Content Rails: 16:9 Continue Watching & 2:3 Theatrical Posters
+   ========================================================================== */
+
+.rails-container {
+  width: min(100%, var(--max-w));
+  margin-inline: auto;
+  padding-bottom: 2.5rem;
+}
+
+.rail-section {
+  padding-top: 1.65rem;
+}
+
+.rail-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-inline: var(--gutter);
+  margin-bottom: 0.85rem;
+}
+
+.rail-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--text-lg);
+  font-weight: var(--w-semibold);
+  letter-spacing: -0.015em;
+  margin: 0;
+  color: var(--ink);
+}
+.rail-chevron {
+  color: var(--ink-muted);
+  font-weight: var(--w-regular);
+  font-size: 1.15em;
+}
+.rail-subtitle {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+.rail-scroller {
+  display: flex;
+  gap: 0.9rem;
+  overflow-x: auto;
+  padding-inline: var(--gutter);
+  padding-bottom: 0.5rem;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.rail-scroller::-webkit-scrollbar { display: none; }
+
+/* 16:9 Continue Watching / Episode Landscape Cards (Screenshot #5 — Prime Target) */
+.card-16x9 {
+  flex: 0 0 clamp(16.5rem, 30vw, 22rem);
+  scroll-snap-align: start;
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--r-card);
+  overflow: hidden;
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 0.5px var(--glass-border);
+  text-align: left;
+  transition: border-color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
+}
+.card-16x9 img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.card-16x9:hover img { opacity: 0.86; }
+
+.card-16x9-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.22) 48%, rgba(0,0,0,0.86) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.75rem 0.9rem;
+}
+
+.card-corner-brand {
+  align-self: flex-end;
+  font-size: 0.68rem;
+  font-weight: var(--w-semibold);
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+}
+
+.card-16x9-title {
+  font-size: 1.05rem;
+  font-weight: var(--w-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ffffff;
+  margin-bottom: 0.35rem;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.8);
+}
+
+.card-16x9-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: var(--text-xs);
+  color: rgba(245, 245, 247, 0.88);
+}
+
+.cw-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.cw-mini-bar {
+  width: 2.2rem;
+  height: 3px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.28);
+  overflow: hidden;
+}
+.cw-mini-bar > span {
+  display: block;
+  height: 100%;
+  background: #ffffff;
+  border-radius: 99px;
+}
+
+/* 2:3 Vertical Theatrical Poster Cards (Screenshot #5 — Must-See Hits) */
+.card-2x3 {
+  flex: 0 0 clamp(8.75rem, 15.5vw, 12.25rem);
+  scroll-snap-align: start;
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--r-card);
+  overflow: hidden;
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 0.5px var(--glass-border);
+  text-align: left;
+}
+.card-2x3 img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.card-2x3:hover img { opacity: 0.85; }
+.card-2x3-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0) 25%, rgba(0,0,0,0) 62%, rgba(0,0,0,0.82) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.6rem 0.7rem;
+}
+.card-2x3-footer {
+  font-size: var(--text-xs);
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: var(--w-medium);
+}
+
+/* Pilot Season Voting Cards */
+.pilot-card {
+  flex: 0 0 clamp(17rem, 28vw, 21rem);
+  scroll-snap-align: start;
+  border-radius: var(--r-card);
+  background: var(--surface-1);
+  border: 0.5px solid var(--hairline);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.pilot-thumb {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #08080a;
+  overflow: hidden;
+}
+.pilot-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.pilot-body {
+  padding: 0.9rem 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.pilot-meta { font-size: var(--text-xs); color: var(--ink-muted); }
+.pilot-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+.btn-vote {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.85rem;
+  border-radius: var(--r-pill);
+  font-size: var(--text-xs);
+  font-weight: var(--w-semibold);
+  background: rgba(255, 255, 255, 0.1);
+  border: 0.5px solid var(--glass-border);
+  color: var(--ink);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.btn-vote:hover { background: rgba(255, 255, 255, 0.18); }
+.btn-vote[aria-pressed="true"] {
+  background: var(--cta-bg);
+  color: var(--cta-ink);
+  border-color: var(--cta-bg);
+}
+
+/* ==========================================================================
+   4. Series & Episode Detail View (Screenshots #2, #3, #4 — Matchbox & Biscuits)
+   ========================================================================== */
+
+.detail-view {
+  min-height: 100dvh;
+  background: var(--bg);
+}
+
+.detail-top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem var(--gutter);
+  margin-bottom: -4.25rem;
+  pointer-events: none;
+}
+.detail-top-bar > * { pointer-events: auto; }
+
+.detail-pill-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.22rem 0.35rem;
+  border-radius: var(--r-pill);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 0.5px solid var(--glass-border-strong);
+}
+
+.detail-hero {
+  position: relative;
+  min-height: clamp(29rem, 66vh, 42rem);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+}
+.detail-hero-img {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+}
+
+.detail-hero-inner {
+  position: relative;
+  z-index: 2;
+  width: min(100% - 2 * var(--gutter), 52rem);
+  text-align: center;
+  padding-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.detail-synopsis-wrap {
+  width: min(100% - 2 * var(--gutter), 52rem);
+  margin-inline: auto;
+  padding-bottom: 1.75rem;
+  border-bottom: 0.5px solid var(--hairline);
+}
+
+.detail-synopsis {
+  color: var(--ink-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  margin: 0 0 0.85rem;
+}
+.detail-synopsis.clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.more-pill {
+  display: inline-block;
+  padding: 0.14rem 0.52rem;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 0.68rem;
+  font-weight: var(--w-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-left: 0.35rem;
+}
+
+/* Apple TV Technical & Provenance Specification Strip ([18+] [4K] [C2PA] [CC] [SDH] [AD]) */
+.spec-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+.spec-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.08rem 0.36rem;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  font-size: 0.64rem;
+  font-weight: var(--w-semibold);
+  letter-spacing: 0.03em;
+  color: var(--ink-secondary);
+  line-height: 1.25;
+}
+.spec-badge--gold {
+  border-color: rgba(217, 160, 91, 0.65);
+  color: var(--provenance);
+}
+
+.detail-body {
+  width: min(100% - 2 * var(--gutter), 64rem);
+  margin-inline: auto;
+  padding-top: 1.5rem;
+}
+
+/* Segmented Tabs inside Detail View (Episodes · Alternate Timeline · Reels) */
+.seg-tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: var(--r-pill);
+  background: var(--surface-1);
+  border: 0.5px solid var(--hairline);
+  margin-bottom: 1.35rem;
+}
+.seg-tab {
+  padding: 0.42rem 0.95rem;
+  border-radius: var(--r-pill);
+  font-size: var(--text-xs);
+  font-weight: var(--w-medium);
+  color: var(--ink-muted);
+  transition: color var(--dur-fast), background-color var(--dur-fast);
+}
+.seg-tab[aria-selected="true"] {
+  background: var(--surface-3);
+  color: var(--ink);
+  font-weight: var(--w-semibold);
+}
+
+.episode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16.5rem, 1fr));
+  gap: 1.15rem;
+  margin-bottom: 2.25rem;
+}
+
+.ep-card {
+  text-align: left;
+  border-radius: var(--r-card);
+  background: var(--surface-1);
+  border: 0.5px solid var(--hairline);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.ep-card:hover { border-color: var(--hairline-strong); }
+
+.ep-card-thumb {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #09090b;
+  overflow: hidden;
+}
+.ep-card-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.ep-card-progress {
+  position: absolute;
+  left: 0.6rem; right: 0.6rem; bottom: 0.5rem;
+  height: 3px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+}
+.ep-card-progress > span {
+  display: block; height: 100%;
+  background: #ffffff;
+}
+
+.ep-card-info {
+  padding: 0.8rem 0.95rem 0.95rem;
+}
+.ep-card-eyebrow {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  margin: 0 0 0.2rem;
+}
+.ep-card-title {
+  font-size: var(--text-base);
+  font-weight: var(--w-semibold);
+  margin: 0 0 0.35rem;
+  color: var(--ink);
+}
+.ep-card-desc {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* Apple TV "How to Watch" + "Made With" + "Information" + "Languages" + "Accessibility" Ledger
+   (Matches Screenshots #2 & #3 pixel-for-pixel in typographic rhythm) */
+.how-to-watch-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+  border-radius: var(--r-card);
+  background: var(--surface-1);
+  border: 0.5px solid var(--hairline);
+  margin-bottom: 2rem;
+}
+.htw-left {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+.htw-app-icon {
+  width: 3rem; height: 3rem;
+  border-radius: 10px;
+  background: #000000;
+  border: 0.5px solid var(--hairline-strong);
+  display: grid;
+  place-items: center;
+  font-weight: var(--w-semibold);
+  font-size: 0.82rem;
+  letter-spacing: -0.02em;
+}
+
+.ledger-section {
+  padding-block: 1.5rem;
+  border-top: 0.5px solid var(--hairline);
+}
+.ledger-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.1rem;
+}
+.ledger-title {
+  font-size: var(--text-lg);
+  font-weight: var(--w-semibold);
+  margin: 0;
+}
+
+.ledger-dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1.1rem 2rem;
+  margin: 0;
+}
+.ledger-item dt {
+  font-size: var(--text-xs);
+  color: var(--ink);
+  font-weight: var(--w-medium);
+  margin-bottom: 0.2rem;
+}
+.ledger-item dd {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  line-height: 1.45;
+}
+
+.a11y-block {
+  max-width: 40rem;
+  margin-bottom: 1rem;
+}
+.a11y-block p {
+  margin: 0.35rem 0 0;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+/* ==========================================================================
+   5. Netflix-Style Vertical Reels Discovery Feed (9:16 Snap Scroll)
+   ========================================================================== */
+
+.reels-stage {
+  height: calc(100dvh - 0.1px);
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  background: #000000;
+}
+.reels-stage::-webkit-scrollbar { display: none; }
+
+.reel-slide {
+  position: relative;
+  height: 100dvh;
+  width: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000000;
+}
+
+.reel-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: 30rem;
+  overflow: hidden;
+  background: #09090b;
+}
+
+@media (min-width: 48rem) {
+  .reel-frame {
+    height: min(86dvh, 52rem);
+    aspect-ratio: 9 / 16;
+    width: auto;
+    border-radius: var(--r-sheet);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85), inset 0 0 0 0.5px var(--glass-border-strong);
+  }
+}
+
+.reel-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #050507;
+}
+
+.reel-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+    rgba(0, 0, 0, 0.36) 0%,
+    rgba(0, 0, 0, 0) 24%,
+    rgba(0, 0, 0, 0) 52%,
+    rgba(0, 0, 0, 0.88) 100%);
+  pointer-events: none;
+}
+
+.reel-overlay {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: calc(4.85rem + env(safe-area-inset-bottom, 0px));
+  padding: 1rem 1.15rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  z-index: 3;
+}
+@media (min-width: 56rem) {
+  .reel-overlay { bottom: 1.25rem; }
+}
+
+.reel-info {
+  flex: 1;
+  min-width: 0;
+}
+.reel-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--text-xs);
+  color: rgba(255, 255, 255, 0.82);
+  margin-bottom: 0.35rem;
+}
+.reel-title {
+  font-size: 1.35rem;
+  font-weight: var(--w-semibold);
+  letter-spacing: 0.04em;
+  margin: 0 0 0.35rem;
+}
+.reel-hook {
+  font-size: var(--text-sm);
+  color: var(--ink-secondary);
+  margin: 0 0 0.85rem;
+  line-height: 1.4;
+}
+
+.reel-rail-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+}
+.reel-action-label {
+  font-size: 0.66rem;
+  color: var(--ink-secondary);
+  margin-top: -0.35rem;
+}
+
+/* ==========================================================================
+   6. Edge-to-Edge Apple TV Cinema Player & End Card (Screenshot #1 — Ted Lasso)
+   ========================================================================== */
+
+.player-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: #000000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.player-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: #000000;
+}
+
+.player-stage video,
+.player-stage iframe {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border: 0;
+  background: #000000;
+}
+
+.player-stage[data-aspect="feed"] video {
+  aspect-ratio: 9 / 16;
+  width: auto;
+  max-height: 92dvh;
+  object-fit: cover;
+  border-radius: var(--r-card);
+}
+
+.player-top-chrome {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  padding: 1.15rem 1.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  z-index: 10;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0) 100%);
+  transition: opacity var(--dur-med) var(--ease-out);
+}
+
+.player-bottom-chrome {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 1.5rem 1.5rem calc(1.35rem + env(safe-area-inset-bottom, 0px));
+  z-index: 10;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0) 100%);
+  transition: opacity var(--dur-med) var(--ease-out);
+}
+
+.player-modal.idle .player-top-chrome,
+.player-modal.idle .player-bottom-chrome {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scrubber-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-top: 0.75rem;
+}
+.scrubber-input {
+  flex: 1;
+  accent-color: #ffffff;
+  height: 4px;
+  cursor: pointer;
+}
+.scrubber-time {
+  font-size: var(--text-xs);
+  color: var(--ink-secondary);
+  min-width: 3.2rem;
+  text-align: right;
+}
+
+/* Screenshot #1 Up-Next End Card Overlay (Bottom-Left "Ted Lasso · S1, E7 · [Next Episode]") */
+.upnext-overlay {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  z-index: 15;
+  padding: 2.5rem clamp(1.25rem, 4vw, 3rem) calc(2rem + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.86) 0%, rgba(0, 0, 0, 0.42) 58%, rgba(0, 0, 0, 0) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+.upnext-series {
+  font-size: 1.4rem;
+  font-weight: var(--w-semibold);
+  color: #ffffff;
+  margin: 0;
+}
+.upnext-ep {
+  font-size: var(--text-sm);
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 0.7rem;
+}
+
+/* ==========================================================================
+   7. Search, Library & Creator / TikTok Screener Views
+   ========================================================================== */
+
+.page-shell {
+  width: min(100% - 2 * var(--gutter), var(--max-w));
+  margin-inline: auto;
+  padding-top: 5.25rem;
+  padding-bottom: 3rem;
+}
+
+.page-title {
+  font-size: clamp(1.75rem, 3vw, 2.35rem);
+  font-weight: var(--w-semibold);
+  letter-spacing: -0.02em;
+  margin: 0 0 0.4rem;
+}
+.page-lede {
+  color: var(--ink-muted);
+  font-size: var(--text-base);
+  max-width: 40rem;
+  margin: 0 0 1.75rem;
+}
+
+.search-bar-box {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 1.1rem;
+  border-radius: var(--r-card);
+  background: var(--surface-1);
+  border: 0.5px solid var(--hairline-strong);
+  max-width: 36rem;
+  margin-bottom: 1.75rem;
+}
+.search-bar-box input {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-size: var(--text-base);
+  color: var(--ink);
+}
+.search-bar-box input::placeholder { color: var(--ink-muted); }
+
+.poster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 1rem;
+}
+.poster-grid .card-2x3 { flex: initial; width: 100%; }
+
+/* Creator Pitch & TikTok DM Screener Studio */
+.creator-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.glass-panel {
+  padding: 1.4rem 1.5rem;
+  border-radius: var(--r-card);
+  background: var(--surface-1);
+  border: 0.5px solid var(--hairline);
+}
+.glass-panel h2, .glass-panel h3 {
+  font-size: var(--text-lg);
+  font-weight: var(--w-semibold);
+  margin: 0 0 0.65rem;
+}
+
+.clean-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.clean-list li {
+  padding: 0.7rem 0;
+  border-top: 0.5px solid var(--hairline);
+  font-size: var(--text-sm);
+  color: var(--ink-secondary);
+}
+.clean-list li:first-child { border-top: 0; }
+.clean-list strong { color: var(--ink); font-weight: var(--w-semibold); }
+
+.form-stack {
+  display: grid;
+  gap: 0.85rem;
+}
+.form-stack label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+.form-stack input,
+.form-stack textarea {
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--r-sm);
+  background: var(--bg-elevated);
+  border: 0.5px solid var(--hairline-strong);
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+.form-stack textarea { min-height: 5.5rem; resize: vertical; }
+
+/* Native Modal Sheet (<dialog>) */
+dialog.apple-sheet {
+  width: min(100% - 1.5rem, 34rem);
+  max-height: 86dvh;
+  padding: 0;
+  border-radius: var(--r-sheet);
+  background: var(--surface-1);
+  color: var(--ink);
+  border: 0.5px solid var(--glass-border-strong);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.85);
+}
+dialog.apple-sheet::backdrop {
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+}
+.sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.1rem 1.35rem;
+  border-bottom: 0.5px solid var(--hairline);
+}
+.sheet-header h3 { margin: 0; font-size: var(--text-base); font-weight: var(--w-semibold); }
+.sheet-content { padding: 1.25rem 1.35rem; }
+
+/* Toast Notification */
+.toast {
+  position: fixed;
+  top: 4.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 400;
+  padding: 0.6rem 1.1rem;
+  border-radius: var(--r-pill);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 0.5px solid var(--glass-border-strong);
+  font-size: var(--text-sm);
+  font-weight: var(--w-medium);
+  color: var(--ink);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+
+/* Footer */
+.app-footer {
+  width: min(100% - 2 * var(--gutter), var(--max-w));
+  margin-inline: auto;
+  padding: 2rem 0 2.5rem;
+  border-top: 0.5px solid var(--hairline);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+.app-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+}
+.app-footer-links a:hover,
+.app-footer-links button:hover { color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

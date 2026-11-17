@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <rect width="1280" height="720" fill="#12100e"/>
+  <line x1="80" y1="600" x2="1200" y2="600" stroke="#26221e" stroke-width="1"/>
+  <circle cx="1040" cy="210" r="4" fill="#d9a05b"/>
+  <text x="80" y="540" fill="#ece6da" font-family="Georgia, 'Instrument Serif', serif" font-size="56" font-style="italic">Sample series · Season 1</text>
+  <text x="80" y="642" fill="#a39c90" font-family="system-ui, -apple-system, sans-serif" font-size="18">Stand-in film: Tears of Steel (Blender Foundation, CC BY 3.0) · Press play to test episodes and progress</text>
+</svg>

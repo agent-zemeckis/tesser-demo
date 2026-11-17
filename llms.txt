@@ -1,0 +1,10 @@
+# Tesser
+
+> A public demo of a streaming home for AI-made series, built for watching episodes in order. The demo is open. A catalogue of licensed AI series is not live yet.
+
+## Docs
+
+- [soul.md](/soul.md): what Tesser is, what it isn't, creator commitments, open questions, and contact
+- [Homepage](/): the human-facing site
+- [Demo player](/watch/): working player with stand-in footage
+- [Founder letter](/letter/): why Tesser exists
