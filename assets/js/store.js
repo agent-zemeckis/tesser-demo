@@ -1,7 +1,7 @@
 /* Mweshi — Browser persistence
  *
- * Continue Watching, watchlist, pilot votes, creator pitches, and private
- * screener links are saved in localStorage (`tesser.state.v2`).
+ * Continue Watching, watchlist, pilot votes, theme preference, creator pitches,
+ * and private screener links are saved in localStorage (`tesser.state.v2`).
  */
 
 (function () {
@@ -13,6 +13,7 @@
   function defaultState() {
     return {
       seededDemo: true,
+      theme: "daylight", // "daylight" (Theme B) | "petrol" (Theme C)
       /* Seeded half-watched episode on first load so the Continue Watching
          rail and inline-progress Play pill are immediately demonstrable. */
       progress: {
@@ -45,6 +46,7 @@
       const parsed = JSON.parse(raw);
       return {
         seededDemo: Boolean(parsed.seededDemo),
+        theme: parsed.theme === "petrol" ? "petrol" : "daylight",
         progress: parsed.progress && typeof parsed.progress === "object" ? parsed.progress : {},
         watchlist: Array.isArray(parsed.watchlist) ? parsed.watchlist : [],
         pilotVotes: parsed.pilotVotes && typeof parsed.pilotVotes === "object" ? parsed.pilotVotes : {},
@@ -71,7 +73,7 @@
       try {
         fn(state);
       } catch (err) {
-        console.error("[TesserStore listener]", err);
+        console.error("[MweshiStore listener]", err);
       }
     });
   }
@@ -84,6 +86,17 @@
 
     getState() {
       return state;
+    },
+
+    getTheme() {
+      return state.theme === "petrol" ? "petrol" : "daylight";
+    },
+
+    setTheme(theme) {
+      state.theme = theme === "petrol" ? "petrol" : "daylight";
+      persistLocal();
+      emit();
+      return state.theme;
     },
 
     getProgress(seriesId) {
@@ -164,12 +177,12 @@
       const entry = {
         creatorName: String(payload.creatorName || "").trim().slice(0, 120),
         email: String(payload.email || "").trim().slice(0, 200),
-        seriesTitle: String(payload.seriesTitle || "").trim().slice(0, 2000),
+        seriesTitle: String(payload.seriesTitle || "").trim().slice(0, 200),
         channelUrl: String(payload.channelUrl || "").trim().slice(0, 500),
-        pilotUrl: String(payload.pilotUrl || "").trim().slice(0, 2000),
-        toolsUsed: String(payload.toolsUsed || "").trim().slice(0, 2000),
-        notes: String(payload.notes || "").trim().slice(0, 2000),
-        preferredTime: String(payload.preferredTime || "").trim().slice(0, 2000)
+        pilotUrl: String(payload.pilotUrl || "").trim().slice(0, 500),
+        toolsUsed: String(payload.toolsUsed || "").trim().slice(0, 400),
+        notes: String(payload.notes || "").trim().slice(0, 1500),
+        preferredTime: String(payload.preferredTime || "").trim().slice(0, 200)
       };
 
       state.submissions.unshift({ ...entry, createdAtMs: Date.now() });

@@ -1,25 +1,30 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="daylight">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Not found · Mweshi</title>
-  <meta name="theme-color" content="#000000">
+  <meta name="theme-color" content="#F4F1EA">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="/assets/css/tokens.css">
   <link rel="stylesheet" href="/assets/css/app.css">
 </head>
 <body>
   <header class="top-chrome">
-    <a class="brand-lockup" href="/">
-      <span class="brand-dot" aria-hidden="true"></span>
-      <span>Mweshi</span>
+    <a class="brand-lockup" href="/" aria-label="Mweshi Home">
+      <svg class="brand-wordmark-svg" viewBox="0 0 150 46" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="MWESHI">
+        <text x="1" y="36" fill="currentColor" font-family="'Instrument Serif', 'Iowan Old Style', Georgia, serif" font-size="40" font-weight="400" letter-spacing="4.2">MWESHI</text>
+        <line x1="12" y1="41" x2="23" y2="7" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="butt"/>
+      </svg>
     </a>
   </header>
-  <main class="page-shell" style="padding-top:7rem;">
+  <main class="page-shell" style="padding-top:calc(var(--header-h) + 3.5rem);">
     <h1 class="page-title">This episode doesn&rsquo;t exist.</h1>
     <p class="page-lede">The page you wanted isn&rsquo;t here.</p>
-    <a class="btn-play-white" href="/">Back to Home</a>
+    <a class="btn-primary" href="/">Back to Home</a>
   </main>
 </body>
 </html>

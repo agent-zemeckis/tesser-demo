@@ -37,7 +37,7 @@ Mweshi has **not** announced revenue-share percentages, grants, or a release dat
 ## Contact
 
 - Founder: Victor Bwalya
-- Reply in the Facebook conversation that shared this demo. No email address is published on the site.
+- Email: `hello@mweshi.com`
 
 ## Pages
 

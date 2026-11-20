@@ -1,14 +1,15 @@
-/* Mweshi — Apple TV × Netflix Reels Streaming Application Controller
+/* Mweshi — Serialized AI Cinema Application Controller
  *
  * Views & Routes:
- *   #/                 -> Apple TV Home Stage (Hero Showcase + Continue Watching 16:9 + 2:3 Posters + Reels Rail + Pilots)
- *   #/reels            -> Netflix-style 9:16 Vertical Scene Discovery Feed (IntersectionObserver auto-loop -> 1-tap Full Series)
- *   #/series/:slug     -> Apple TV Series Detail View (Inline-Progress Play Pill, Spec Strip, Episodes / Alt Timeline / Reels, Made With Ledger)
+ *   #/                 -> Framed Editorial Home Stage + Orientation Strip + Clickable CW + Unobstructed Posters + Reels + Pilots + Alt Cuts
+ *   #/reels            -> Immersive Darkroom 9:16 Vertical Scene Discovery Feed (IntersectionObserver auto-loop + 1/5 counter + loop progress + Up/Down nav)
+ *   #/series/:slug     -> Series Detail View (Compact Hero, Inline More/Less, 2x2 Horizontal Episodes, Two-Column Made With Dossier, Compact Metadata)
  *   #/pilots           -> Pilot Season Community Greenlight Slate
- *   #/library          -> Saved Watchlist & Continue Watching History
+ *   #/library          -> Saved Watchlist, Continue Watching History & Local Browser Storage Info
  *   #/search           -> Instant Search across titles, crew, genres, and provenance tags
- *   #/creators         -> Creator Terms, Submit Series / 15-Min Chat (saved locally, emailed to Victor), and Private TikTok DM Screener Builder
- *   ?screener=<token>  -> Hydrates an unlisted private creator screener into the Apple TV Series Detail & Player stage
+ *   #/creators         -> Founding Creator Terms & Pilot Submission (mailto:hello@mweshi.com + Copy Summary)
+ *   #/studio           -> Unlisted Founder Screener Builder (TikTok / YouTube DM Preview Link Generator)
+ *   ?screener=<token>  -> Hydrates an unlisted private creator screener into Series Detail & Cinema Player
  */
 
 (function () {
@@ -19,9 +20,9 @@
 
   const root = document.getElementById("app-root");
   const topChrome = document.getElementById("top-chrome");
-  const cloudBtn = document.getElementById("cloud-status-btn");
-  const cloudDot = document.getElementById("cloud-status-dot");
-  const cloudLabel = document.getElementById("cloud-status-label");
+  const themeToggleBtn = document.getElementById("theme-toggle-btn");
+  const themeToggleIcon = document.getElementById("theme-toggle-icon");
+  const themeColorMeta = document.getElementById("theme-color-meta");
   const sheet = document.getElementById("apple-sheet");
   const sheetTitle = document.getElementById("sheet-title");
   const sheetBody = document.getElementById("sheet-body");
@@ -33,6 +34,10 @@
   const playerStage = document.getElementById("player-stage");
   const videoEl = document.getElementById("cinema-video");
   const iframeEl = document.getElementById("cinema-iframe");
+  const playerStatusEl = document.getElementById("player-status");
+  const playerSpinnerEl = document.getElementById("player-spinner");
+  const playerStatusMsg = document.getElementById("player-status-msg");
+  const playerRetryBtn = document.getElementById("player-retry-btn");
   const playerCloseBtn = document.getElementById("player-close-btn");
   const playerSeriesLabel = document.getElementById("player-series-label");
   const playerEpLabel = document.getElementById("player-ep-label");
@@ -45,20 +50,27 @@
   const playerBack10Btn = document.getElementById("player-back10-btn");
   const playerFwd10Btn = document.getElementById("player-fwd10-btn");
   const playerMuteBtn = document.getElementById("player-mute-btn");
+  const playerMuteIcon = document.getElementById("player-mute-icon");
+  const playerMuteLabel = document.getElementById("player-mute-label");
   const playerProvBtn = document.getElementById("player-provenance-btn");
   const playerElapsed = document.getElementById("player-elapsed");
   const playerScrubber = document.getElementById("player-scrubber");
   const playerRemaining = document.getElementById("player-remaining");
   const upnextEl = document.getElementById("player-upnext");
+  const upnextDismissBtn = document.getElementById("upnext-dismiss-btn");
   const upnextSeriesTitle = document.getElementById("upnext-series-title");
   const upnextEpTitle = document.getElementById("upnext-ep-title");
   const upnextPlayBtn = document.getElementById("upnext-play-btn");
   const upnextBtnLabel = document.getElementById("upnext-btn-label");
   const upnextReplayBtn = document.getElementById("upnext-replay-btn");
 
+  const isDebugMode = new URLSearchParams(window.location.search).get("debug") === "1";
+
   /* Ephemeral UI State */
   let heroIndex = 0;
   let heroTimer = null;
+  let heroObserver = null;
+  let heroVisible = true;
   let reelsObserver = null;
   let reelsMuted = true;
   let detailTab = "episodes";
@@ -67,6 +79,7 @@
   let searchQuery = "";
   let toastTimer = null;
   let activeScreenerSeries = null;
+  let lastPitchDraft = null;
 
   /* Active Player Session */
   let playerSession = {
@@ -76,7 +89,8 @@
     isAlternate: false,
     lastSavedAtMs: 0,
     idleTimer: null,
-    endedReached: false
+    endedReached: false,
+    upnextDismissed: false
   };
 
   /* ---------- Utilities ---------- */
@@ -122,6 +136,22 @@
     }, 2800);
   }
 
+  function isLaunchStripDismissed() {
+    try {
+      return sessionStorage.getItem("mweshi.strip.dismissed") === "1";
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function dismissLaunchStrip() {
+    try {
+      sessionStorage.setItem("mweshi.strip.dismissed", "1");
+    } catch (_) {}
+    const wrap = document.getElementById("launch-strip-wrap");
+    if (wrap) wrap.remove();
+  }
+
   function extractYouTubeId(input) {
     if (!input) return null;
     const trimmed = String(input).trim();
@@ -147,6 +177,27 @@
       return JSON.parse(new TextDecoder().decode(bytes));
     } catch (_) {
       return null;
+    }
+  }
+
+  /* ---------- Theme Management (Theme B Daylight <-> Theme C Midnight Petrol) ---------- */
+
+  function applyTheme(theme) {
+    const normalized = theme === "petrol" ? "petrol" : "daylight";
+    document.documentElement.setAttribute("data-theme", normalized);
+    if (themeColorMeta) {
+      themeColorMeta.setAttribute("content", normalized === "petrol" ? "#0B171A" : "#F4F1EA");
+    }
+    if (themeToggleBtn && themeToggleIcon) {
+      if (normalized === "petrol") {
+        themeToggleBtn.setAttribute("aria-label", "Switch to Daylight Gallery light theme");
+        themeToggleBtn.setAttribute("title", "Switch to Daylight Gallery");
+        themeToggleIcon.innerHTML = `<circle cx="12" cy="12" r="4.5"/><line x1="12" y1="2" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.7" y2="6.7"/><line x1="17.3" y1="17.3" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.7" y2="17.3"/><line x1="17.3" y1="6.7" x2="19.07" y2="4.93"/>`;
+      } else {
+        themeToggleBtn.setAttribute("aria-label", "Switch to Midnight Petrol dark theme");
+        themeToggleBtn.setAttribute("title", "Switch to Midnight Petrol");
+        themeToggleIcon.innerHTML = `<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>`;
+      }
     }
   }
 
@@ -190,7 +241,7 @@
       synopsis:
         String(
           data.synopsis ||
-            `Private Apple TV-style series stage prepared by Mweshi to preview how "${data.title}" plays as an episodic show with sequential chapters and full Made With provenance.`
+            `Private cinema-grade series stage prepared by Mweshi to preview how "${data.title}" plays as an episodic show with sequential chapters and full Made With provenance.`
         ).slice(0, 500),
       synopsisExtended:
         "Unlisted preview generated for creator review only. Mweshi never lists or monetizes creator work without explicit creator agreement.",
@@ -207,7 +258,7 @@
         endSec: 185,
         durationSec: 185,
         thumb,
-        youtubeId: idx === 0 ? ytId : ytId,
+        youtubeId: ytId,
         streamUrl: isDirectMp4 ? data.video : "https://archive.org/download/Tears-of-Steel/tears_of_steel_720p.mp4",
         synopsis:
           idx === 0
@@ -245,22 +296,26 @@
     if (slug === "screener" && activeScreenerSeries) return activeScreenerSeries;
     const found = Catalog.getSeriesBySlug(slug);
     if (found) return found;
-    const saved = Store.getState().screeners.find((s) => s.slug === slug);
-    return saved || null;
+    return null;
   }
 
   /* ---------- Icons & Reusable HTML Builders ---------- */
 
   const ICON_PLAY = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>`;
-  const ICON_PAUSE = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>`;
   const ICON_PLUS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
   const ICON_CHECK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17.5 19 6.5"/></svg>`;
   const ICON_SHARE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><polyline points="7 8 12 3 17 8"/><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>`;
   const ICON_BACK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>`;
+  const ICON_CHEVRON_LEFT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>`;
+  const ICON_CHEVRON_RIGHT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
+  const ICON_CHEVRON_UP = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>`;
+  const ICON_CHEVRON_DOWN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`;
   const ICON_INFO = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+  const ICON_CLOSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>`;
+  const ICON_VOL_ON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
+  const ICON_VOL_OFF = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>`;
+  const ICON_APERTURE_M = `<svg viewBox="0 0 64 64" width="46" height="46" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="64" height="64" rx="12" fill="#F5B82E"/><path d="M13 48V16h7.4L32 35.8 43.6 16H51v32h-6.8V26.4L33.9 43.8h-3.8L19.8 26.4V48H13Z" fill="#14110F"/><path d="M22.5 52 34.5 12" stroke="#E85D26" stroke-width="4.2" stroke-linecap="butt"/></svg>`;
 
-  /* Builds the Apple TV Solid White Play Pill — automatically turns into the
-     Screenshot #4 Inline-Progress Resume Pill (`▶ ●━━── 2m left`) when progress exists! */
   function renderSmartPlayPill(series) {
     const prog = Store.getProgress(series.id);
     if (prog && !prog.completed && prog.positionSec > 3) {
@@ -269,11 +324,10 @@
       return `
         <button class="btn-play-white tabular" type="button" data-action="play-series" data-series="${esc(series.slug)}" aria-label="Resume ${esc(series.title)} Season ${prog.seasonNumber} Episode ${prog.episodeNumber}">
           ${ICON_PLAY}
-          <span class="inline-progress-dot" aria-hidden="true"></span>
+          <span>S${prog.seasonNumber}, E${prog.episodeNumber} &middot; ${esc(remLabel)}</span>
           <span class="inline-progress-track" aria-hidden="true">
             <span class="inline-progress-fill" style="width:${pct}%"></span>
           </span>
-          <span>S${prog.seasonNumber}, E${prog.episodeNumber} &middot; ${esc(remLabel)}</span>
         </button>
       `;
     }
@@ -285,18 +339,22 @@
     `;
   }
 
+  /* Unobstructed 2:3 Poster Card — Artwork stays pure, captions sit cleanly below */
   function renderPosterCard(series) {
     return `
-      <a class="card-2x3" href="#/series/${esc(series.slug)}" aria-label="${esc(series.title)} — ${series.episodes.length} episodes">
-        <img src="${esc(series.poster)}" alt="${esc(series.title)} poster" loading="lazy">
-        <div class="card-2x3-overlay">
-          <span class="card-corner-brand">Mweshi</span>
-          <span class="card-2x3-footer tabular">${series.episodes.length} Episodes &middot; ${esc(series.quality)}</span>
+      <a class="poster-card" href="#/series/${esc(series.slug)}" aria-label="${esc(series.title)} — ${series.episodes.length} episodes">
+        <div class="poster-art">
+          <img src="${esc(series.poster)}" alt="${esc(series.title)} poster" loading="lazy">
+        </div>
+        <div>
+          <div class="poster-caption-title">${esc(series.title)}</div>
+          <div class="poster-caption-meta tabular">${series.episodes.length} Episodes &middot; ${esc(series.quality)}</div>
         </div>
       </a>
     `;
   }
 
+  /* Fully Clickable Continue Watching Card */
   function renderContinueWatchingCard(prog) {
     const series = resolveSeries(prog.seriesId);
     if (!series) return "";
@@ -304,64 +362,217 @@
     const pct = Math.min(96, Math.max(6, Math.round((prog.positionSec / Math.max(1, prog.durationSec)) * 100)));
     const rem = formatRemainingShort(Math.max(1, prog.durationSec - prog.positionSec));
     return `
-      <div class="card-16x9" role="group" aria-label="Continue watching ${esc(series.title)}">
-        <img src="${esc(ep.thumb || series.heroImage)}" alt="${esc(series.title)} ${esc(ep.title)}" loading="lazy">
-        <div class="card-16x9-scrim">
-          <span class="card-corner-brand">Mweshi</span>
-          <div>
-            <div class="card-16x9-title">${esc(series.title)}</div>
-            <div class="card-16x9-bottom tabular">
-              <button type="button" class="cw-status" data-action="play-episode" data-series="${esc(series.slug)}" data-ep="${esc(ep.id)}" style="color:inherit;">
-                <span style="display:inline-flex;width:0.85rem;height:0.85rem;">${ICON_PLAY}</span>
-                <span class="cw-mini-bar"><span style="width:${pct}%"></span></span>
-                <span>S${prog.seasonNumber}, E${prog.episodeNumber} &middot; ${esc(rem)}</span>
-              </button>
-              <a href="#/series/${esc(series.slug)}" aria-label="View ${esc(series.title)} details" style="padding:0.15rem 0.45rem;border-radius:99px;background:rgba(255,255,255,0.16);font-weight:600;">&middot;&middot;&middot;</a>
-            </div>
-          </div>
+      <article class="cw-card" aria-label="Continue watching ${esc(series.title)}">
+        <button class="cw-card-media" type="button" data-action="play-episode" data-series="${esc(series.slug)}" data-ep="${esc(ep.id)}" aria-label="Resume ${esc(series.title)} S${prog.seasonNumber}, E${prog.episodeNumber}">
+          <img src="${esc(ep.thumb || series.heroImage)}" alt="${esc(series.title)} ${esc(ep.title)}" loading="lazy">
+          <span class="cw-play-badge" aria-hidden="true">${ICON_PLAY}</span>
+          <span class="cw-progress-rail" aria-hidden="true"><span style="width:${pct}%"></span></span>
+        </button>
+        <div class="cw-card-footer">
+          <button class="cw-card-meta-btn" type="button" data-action="play-episode" data-series="${esc(series.slug)}" data-ep="${esc(ep.id)}">
+            <div class="cw-card-title">${esc(series.title)}</div>
+            <div class="cw-card-sub tabular">S${prog.seasonNumber}, E${prog.episodeNumber} &middot; ${esc(rem)}</div>
+          </button>
+          <a class="cw-more-link" href="#/series/${esc(series.slug)}" aria-label="View ${esc(series.title)} details" title="Series details">&middot;&middot;&middot;</a>
         </div>
+      </article>
+    `;
+  }
+
+  function renderRailWithArrows(innerHtml) {
+    return `
+      <div class="rail-wrap">
+        <button class="rail-arrow rail-arrow--prev" type="button" data-rail-dir="-1" aria-label="Scroll left">${ICON_CHEVRON_LEFT}</button>
+        <div class="rail-scroller">${innerHtml}</div>
+        <button class="rail-arrow rail-arrow--next" type="button" data-rail-dir="1" aria-label="Scroll right">${ICON_CHEVRON_RIGHT}</button>
       </div>
     `;
+  }
+
+  function setupRailScrollControls() {
+    document.querySelectorAll(".rail-wrap").forEach((wrap) => {
+      const scroller = wrap.querySelector(".rail-scroller");
+      const prevBtn = wrap.querySelector(".rail-arrow--prev");
+      const nextBtn = wrap.querySelector(".rail-arrow--next");
+      if (!scroller || !prevBtn || !nextBtn) return;
+
+      const updateArrows = () => {
+        const canLeft = scroller.scrollLeft > 8;
+        const canRight = scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - 8;
+        prevBtn.classList.toggle("is-visible", canLeft);
+        nextBtn.classList.toggle("is-visible", canRight);
+      };
+
+      prevBtn.addEventListener("click", () => {
+        scroller.scrollBy({ left: -Math.round(scroller.clientWidth * 0.75), behavior: "smooth" });
+      });
+      nextBtn.addEventListener("click", () => {
+        scroller.scrollBy({ left: Math.round(scroller.clientWidth * 0.75), behavior: "smooth" });
+      });
+
+      scroller.addEventListener("scroll", updateArrows, { passive: true });
+      requestAnimationFrame(updateArrows);
+      setTimeout(updateArrows, 250);
+    });
   }
 
   function renderFooter() {
     return `
       <footer class="app-footer">
-        <div>
-          <strong style="color:var(--ink);">Mweshi</strong> &middot; Serialized AI Cinema &middot; Demo footage courtesy of Blender Foundation Amsterdam (CC-BY, non-AI stand-in architecture demo).
+        <div class="app-footer-top">
+          <div>
+            <strong style="color:var(--ink);">Mweshi</strong> &middot; Serialized AI Cinema &middot; <a href="mailto:hello@mweshi.com" style="color:var(--accent);font-weight:500;">hello@mweshi.com</a>
+          </div>
+          <div class="app-footer-links">
+            <a href="#/creators">For Creators</a>
+            <a href="letter/">Founder's Letter</a>
+            <a href="#/pilots">Pilot Season</a>
+            <button type="button" data-action="open-cloud-sheet">Saved on this browser</button>
+          </div>
         </div>
-        <div class="app-footer-links">
-          <a href="#/creators">For Creators &amp; Screener Studio</a>
-          <a href="letter/">Founder's Letter</a>
-          <a href="soul.md">For Agents (soul.md)</a>
-          <a href="llms.txt">llms.txt</a>
-          <button type="button" data-action="open-cloud-sheet">Saved on this browser</button>
+        <div class="app-footer-bottom">
+          <span>Demo footage courtesy of Blender Foundation Amsterdam (CC-BY, non-AI stand-in architecture demo).</span>
+          <div class="app-footer-tech">
+            <a href="soul.md">For Agents (soul.md)</a>
+            <span>&middot;</span>
+            <a href="llms.txt">llms.txt</a>
+          </div>
         </div>
       </footer>
     `;
   }
 
-  /* ---------- View 1: Apple TV Home Stage (`#/`) ---------- */
+  /* ---------- View 1: Editorial Home Stage (`#/`) ---------- */
+
+  function renderHeroContentHTML(activeHero) {
+    const inList = Store.isInWatchlist(activeHero.id);
+    return `
+      <span class="hero-eyebrow-pill">${esc(activeHero.eyebrow)}</span>
+      <h1 class="hero-wordmark" data-style="${esc(activeHero.wordmarkStyle)}">
+        <a href="#/series/${esc(activeHero.slug)}">${esc(activeHero.title)}</a>
+      </h1>
+      <p class="hero-meta-line">
+        <span>${esc(activeHero.category)}</span>
+        <span>&middot;</span>
+        <span class="tabular">${activeHero.episodes.length} Episodes &middot; ${esc(activeHero.quality)}</span>
+      </p>
+      <p class="hero-subline">${esc(activeHero.subline)}</p>
+      <div class="hero-cta-row">
+        ${renderSmartPlayPill(activeHero)}
+        <button class="btn-circle-glass" type="button" data-action="toggle-watchlist" data-series="${esc(activeHero.id)}" aria-pressed="${inList}" aria-label="${inList ? "Remove from Library" : "Add to Library"}" title="${inList ? "In Library" : "Add to Library"}">
+          ${inList ? ICON_CHECK : ICON_PLUS}
+        </button>
+        <a class="btn-circle-glass" href="#/series/${esc(activeHero.slug)}" aria-label="Open ${esc(activeHero.title)} series page" title="Episodes &amp; Made With Provenance">
+          ${ICON_INFO}
+        </a>
+      </div>
+    `;
+  }
+
+  function updateHeroInPlace(featured) {
+    const stage = document.getElementById("hero-stage");
+    if (!stage || !featured.length) return;
+    const activeHero = featured[heroIndex % featured.length] || featured[0];
+    const img = stage.querySelector(".hero-backdrop");
+    const contentEl = document.getElementById("hero-content-slot");
+    const dots = stage.querySelectorAll(".hero-dot");
+
+    if (img && img.getAttribute("src") !== activeHero.heroImage) {
+      img.classList.add("is-fading");
+      setTimeout(() => {
+        img.src = activeHero.heroImage;
+        img.alt = `${activeHero.title} key art`;
+        img.classList.remove("is-fading");
+      }, 170);
+    }
+
+    if (contentEl) {
+      contentEl.innerHTML = renderHeroContentHTML(activeHero);
+    }
+
+    dots.forEach((dot, idx) => {
+      dot.setAttribute("aria-selected", String(idx === heroIndex % featured.length));
+    });
+  }
+
+  function stopHeroRotation() {
+    clearInterval(heroTimer);
+    heroTimer = null;
+    if (heroObserver) {
+      heroObserver.disconnect();
+      heroObserver = null;
+    }
+  }
+
+  function startHeroRotation(featured) {
+    stopHeroRotation();
+    if (featured.length <= 1 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const stage = document.getElementById("hero-stage");
+    if (!stage) return;
+    heroVisible = true;
+
+    heroObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          heroVisible = entry.isIntersecting;
+        });
+      },
+      { threshold: 0.25 }
+    );
+    heroObserver.observe(stage);
+
+    heroTimer = setInterval(() => {
+      const currentStage = document.getElementById("hero-stage");
+      if (!currentStage || !heroVisible || currentStage.matches(":hover") || playerSession.open) return;
+      heroIndex = (heroIndex + 1) % featured.length;
+      updateHeroInPlace(featured);
+    }, 9000);
+  }
 
   function renderHomeView() {
     const featured = Catalog.series.filter((s) => s.featured);
     const activeHero = featured[heroIndex % featured.length] || featured[0];
-    const inList = Store.isInWatchlist(activeHero.id);
     const cwList = Store.getContinueWatchingList();
+
+    const launchStrip = !isLaunchStripDismissed()
+      ? `
+        <div class="launch-strip-wrap" id="launch-strip-wrap">
+          <div class="launch-strip" role="region" aria-label="Platform launch notice">
+            <div class="launch-strip-main">
+              <span class="launch-strip-bar" aria-hidden="true"></span>
+              <span><strong style="color:var(--ink);">Mweshi</strong> is launching for serialized AI shows &mdash; explore the interactive demo slate below, or apply as a Founding Creator.</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
+              <a class="launch-strip-cta" href="#/creators">Founding Cohort &rarr;</a>
+              <button class="launch-strip-dismiss" type="button" data-action="dismiss-launch-strip" aria-label="Dismiss launch notice">${ICON_CLOSE}</button>
+            </div>
+          </div>
+        </div>
+      `
+      : "";
 
     const cwSection = cwList.length
       ? `
         <section class="rail-section" aria-label="Continue Watching">
           <div class="rail-header">
             <h2 class="rail-title">Continue Watching <span class="rail-chevron">&rsaquo;</span></h2>
-            <span class="rail-subtitle">Synced episode timestamps</span>
+            <span class="rail-subtitle">Resume right where you left off</span>
           </div>
-          <div class="rail-scroller">
-            ${cwList.map(renderContinueWatchingCard).join("")}
-          </div>
+          ${renderRailWithArrows(cwList.map(renderContinueWatchingCard).join(""))}
         </section>
       `
       : "";
+
+    const premiereRail = `
+      <section class="rail-section" aria-label="Premiere Demo Slate">
+        <div class="rail-header">
+          <h2 class="rail-title">Premiere Demo Slate <span class="rail-chevron">&rsaquo;</span></h2>
+          <span class="rail-subtitle">Blender Institute open films structured into serialized seasons</span>
+        </div>
+        ${renderRailWithArrows(Catalog.series.map(renderPosterCard).join(""))}
+      </section>
+    `;
 
     const reelsPreviewRail = `
       <section class="rail-section" aria-label="Scene Reels Discovery">
@@ -369,37 +580,24 @@
           <a href="#/reels" class="rail-title">Reels &middot; Vertical Scene Hooks <span class="rail-chevron">&rsaquo;</span></a>
           <span class="rail-subtitle">30-second hooks that open straight into Episode 1</span>
         </div>
-        <div class="rail-scroller">
-          ${Catalog.reels
+        ${renderRailWithArrows(
+          Catalog.reels
             .map(
               (r) => `
-            <a class="card-2x3" href="#/reels?reel=${esc(r.id)}" style="aspect-ratio:9/16;flex:0 0 clamp(9.5rem, 17vw, 13rem);">
+            <a class="reel-preview-card" href="#/reels?reel=${esc(r.id)}">
               <img src="${esc(r.poster)}" alt="${esc(r.title)} scene hook" loading="lazy">
-              <div class="card-2x3-overlay" style="background:linear-gradient(180deg,rgba(0,0,0,0.3) 0%,rgba(0,0,0,0) 35%,rgba(0,0,0,0.88) 100%);">
-                <span class="card-corner-brand">Reel</span>
+              <div class="reel-preview-scrim">
+                <span class="reel-preview-badge">${esc(r.tag)}</span>
                 <div>
-                  <div style="font-size:0.7rem;color:var(--provenance);font-weight:600;margin-bottom:0.15rem;">${esc(r.tag)}</div>
-                  <div style="font-size:0.92rem;font-weight:600;color:#fff;margin-bottom:0.2rem;">${esc(r.title)}</div>
-                  <div style="font-size:0.72rem;color:var(--ink-secondary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${esc(r.hook)}</div>
+                  <div class="reel-preview-title">${esc(r.title)}</div>
+                  <div class="reel-preview-hook">${esc(r.hook)}</div>
                 </div>
               </div>
             </a>
           `
             )
-            .join("")}
-        </div>
-      </section>
-    `;
-
-    const premiereRail = `
-      <section class="rail-section" aria-label="Premiere Demo Slate">
-        <div class="rail-header">
-          <h2 class="rail-title">Premiere Demo Slate <span class="rail-chevron">&rsaquo;</span></h2>
-          <span class="rail-subtitle">Dutch Blender Institute open films structured into serialized seasons</span>
-        </div>
-        <div class="rail-scroller">
-          ${Catalog.series.map(renderPosterCard).join("")}
-        </div>
+            .join("")
+        )}
       </section>
     `;
 
@@ -410,9 +608,7 @@
           <a href="#/pilots" class="rail-title">Pilot Season &middot; Greenlight <span class="rail-chevron">&rsaquo;</span></a>
           <span class="rail-subtitle">Audience demand signals which pilots earn full season backing</span>
         </div>
-        <div class="rail-scroller">
-          ${pilotSeries.map(renderPilotCard).join("")}
-        </div>
+        ${renderRailWithArrows(pilotSeries.map(renderPilotCard).join(""))}
       </section>
     `;
 
@@ -422,69 +618,55 @@
           <h2 class="rail-title">Alternate Timelines &amp; Cuts <span class="rail-chevron">&rsaquo;</span></h2>
           <span class="rail-subtitle">Parallel narrative cuts mounted alongside Season 1</span>
         </div>
-        <div class="rail-scroller">
-          ${Catalog.series
+        ${renderRailWithArrows(
+          Catalog.series
             .filter((s) => s.alternateEpisodes && s.alternateEpisodes.length)
             .map((s) => {
               const alt = s.alternateEpisodes[0];
               return `
-                <a class="card-16x9" href="#/series/${esc(s.slug)}?tab=alt">
-                  <img src="${esc(alt.thumb)}" alt="${esc(alt.title)}" loading="lazy">
-                  <div class="card-16x9-scrim">
-                    <span class="card-corner-brand">${esc(alt.branchLabel || "Alternate Cut")}</span>
-                    <div>
-                      <div class="card-16x9-title">${esc(s.title)}</div>
-                      <div class="card-16x9-bottom">
-                        <span>${esc(alt.title)}</span>
-                        <span class="tabular">${formatDurationHuman(alt.durationSec)}</span>
-                      </div>
+                <a class="alt-card" href="#/series/${esc(s.slug)}?tab=alt">
+                  <div class="alt-card-thumb">
+                    <img src="${esc(alt.thumb)}" alt="${esc(alt.title)}" loading="lazy">
+                    <span class="branch-pill">${esc(alt.branchLabel || "Alternate Cut")}</span>
+                  </div>
+                  <div class="alt-card-footer">
+                    <div style="min-width:0;">
+                      <div class="alt-card-series">${esc(s.title)}</div>
+                      <div class="alt-card-cut">${esc(alt.title)}</div>
                     </div>
+                    <span class="alt-card-dur tabular">${formatDurationHuman(alt.durationSec)}</span>
                   </div>
                 </a>
               `;
             })
-            .join("")}
-        </div>
+            .join("")
+        )}
       </section>
     `;
 
     root.innerHTML = `
-      <section class="hero-stage" aria-label="Featured series showcase" id="hero-stage">
-        <img class="hero-backdrop" src="${esc(activeHero.heroImage)}" alt="${esc(activeHero.title)} key art">
-        <div class="hero-scrim"></div>
-        <div class="hero-content">
-          <span class="hero-eyebrow-pill">${esc(activeHero.eyebrow)}</span>
-          <h1 class="hero-wordmark" data-style="${esc(activeHero.wordmarkStyle)}">
-            <a href="#/series/${esc(activeHero.slug)}">${esc(activeHero.title)}</a>
-          </h1>
-          <p class="hero-meta-line">
-            <span class="tesser-mini-badge">Mweshi</span>
-            <span>&middot;</span>
-            <span>${esc(activeHero.category)}</span>
-          </p>
-          <p class="hero-subline">${esc(activeHero.subline)}</p>
-
-          <div class="hero-cta-row">
-            ${renderSmartPlayPill(activeHero)}
-            <button class="btn-circle-glass" type="button" data-action="toggle-watchlist" data-series="${esc(activeHero.id)}" aria-pressed="${inList}" aria-label="${inList ? "Remove from Library" : "Add to Library"}" title="${inList ? "In Library" : "Add to Library"}">
-              ${inList ? ICON_CHECK : ICON_PLUS}
-            </button>
-            <a class="btn-circle-glass" href="#/series/${esc(activeHero.slug)}" aria-label="Open ${esc(activeHero.title)} series page" title="Episodes &amp; Made With Ledger">
-              ${ICON_INFO}
-            </a>
+      <div class="hero-outer">
+        <section class="hero-stage" aria-label="Featured series showcase" id="hero-stage">
+          <img class="hero-backdrop" src="${esc(activeHero.heroImage)}" alt="${esc(activeHero.title)} key art">
+          <div class="hero-scrim"></div>
+          <div class="hero-inner">
+            <div class="hero-content" id="hero-content-slot">
+              ${renderHeroContentHTML(activeHero)}
+            </div>
+            <div class="hero-dots" role="tablist" aria-label="Featured titles">
+              ${featured
+                .map(
+                  (s, idx) => `
+                <button class="hero-dot" type="button" role="tab" aria-selected="${idx === heroIndex % featured.length}" aria-label="Show ${esc(s.title)}" data-action="hero-dot" data-index="${idx}"></button>
+              `
+                )
+                .join("")}
+            </div>
           </div>
+        </section>
+      </div>
 
-          <div class="hero-dots" role="tablist" aria-label="Featured titles">
-            ${featured
-              .map(
-                (s, idx) => `
-              <button class="hero-dot" type="button" role="tab" aria-selected="${idx === heroIndex % featured.length}" aria-label="Show ${esc(s.title)}" data-action="hero-dot" data-index="${idx}"></button>
-            `
-              )
-              .join("")}
-          </div>
-        </div>
-      </section>
+      ${launchStrip}
 
       <div class="rails-container">
         ${cwSection}
@@ -496,7 +678,8 @@
       ${renderFooter()}
     `;
 
-    startHeroRotation(featured.length);
+    setupRailScrollControls();
+    startHeroRotation(featured);
   }
 
   function renderPilotCard(series) {
@@ -508,43 +691,47 @@
         </a>
         <div class="pilot-body">
           <div class="pilot-meta">${esc(series.pilot.stage)} &middot; ${esc(series.studio)}</div>
-          <h3 style="margin:0;font-size:1.05rem;font-weight:var(--w-semibold);">
+          <h3 class="pilot-title">
             <a href="#/series/${esc(series.slug)}">${esc(series.title)}</a>
           </h3>
-          <p style="margin:0;font-size:var(--text-xs);color:var(--ink-secondary);line-height:1.45;">${esc(series.pilot.pitch)}</p>
+          <p class="pilot-pitch">${esc(series.pilot.pitch)}</p>
           <div class="pilot-actions">
             <button class="btn-vote" type="button" data-action="toggle-vote" data-series="${esc(series.id)}" aria-pressed="${voted}">
-              <span>${voted ? "✓ Greenlight Vote Recorded" : "▲ Vote to Greenlight"}</span>
+              <span>${voted ? "✓ Voted" : "▲ Greenlight"}</span>
             </button>
-            <button class="glass-chip" type="button" data-action="play-series" data-series="${esc(series.slug)}">Watch Ep 1</button>
+            <button class="glass-chip" type="button" data-action="play-series" data-series="${esc(series.slug)}">Play Ep 1</button>
           </div>
         </div>
       </article>
     `;
   }
 
-  function startHeroRotation(count) {
-    clearInterval(heroTimer);
-    if (count <= 1 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    heroTimer = setInterval(() => {
-      const stage = document.getElementById("hero-stage");
-      if (!stage || stage.matches(":hover")) return;
-      heroIndex = (heroIndex + 1) % count;
-      renderHomeView();
-    }, 9000);
+  /* ---------- View 2: Series Detail View (`#/series/:slug`) ---------- */
+
+  function partitionLedgerRows(rows) {
+    const humanRegex = /human|director|writer|producer|cast|voice|score|cinematography|production team|creator|showrunner/i;
+    const humanRows = [];
+    const stackRows = [];
+    rows.forEach((row) => {
+      if (humanRegex.test(row.label)) humanRows.push(row);
+      else stackRows.push(row);
+    });
+    if (!humanRows.length || !stackRows.length) {
+      const mid = Math.ceil(rows.length / 2);
+      return { humanRows: rows.slice(0, mid), stackRows: rows.slice(mid) };
+    }
+    return { humanRows, stackRows };
   }
 
-  /* ---------- View 2: Apple TV Series Detail View (`#/series/:slug`) ---------- */
-
   function renderSeriesDetailView(slug, queryParams) {
-    clearInterval(heroTimer);
+    stopHeroRotation();
     const series = resolveSeries(slug);
     if (!series) {
       root.innerHTML = `
         <div class="page-shell">
           <h1 class="page-title">Series not found</h1>
           <p class="page-lede">That title isn't in the active demo catalogue.</p>
-          <a class="btn-play-white" href="#/">Back to Home</a>
+          <a class="btn-primary" href="#/">Back to Home</a>
         </div>
       `;
       return;
@@ -556,6 +743,7 @@
     const inList = Store.isInWatchlist(series.id);
     const prog = Store.getProgress(series.id);
     const seriesReels = Catalog.reels.filter((r) => r.seriesId === series.id);
+    const isDesktop = window.matchMedia("(min-width: 52rem)").matches;
 
     const activeTabContent = (() => {
       if (detailTab === "alt" && series.alternateEpisodes && series.alternateEpisodes.length) {
@@ -579,8 +767,10 @@
                   <img src="${esc(r.poster)}" alt="${esc(r.title)}" loading="lazy">
                 </div>
                 <div class="ep-card-info">
-                  <p class="ep-card-eyebrow">${esc(r.tag)} &middot; Vertical 9:16 Hook</p>
-                  <h3 class="ep-card-title">Open in Reels Feed</h3>
+                  <div class="ep-card-top">
+                    <h3 class="ep-card-title">Open in Reels Feed</h3>
+                    <span class="ep-card-dur">9:16 Hook</span>
+                  </div>
                   <p class="ep-card-desc">${esc(r.hook)}</p>
                 </div>
               </a>
@@ -601,6 +791,12 @@
       detailLedgerMode === "aispec" && series.madeWith.aiSpecExample
         ? series.madeWith.aiSpecExample
         : series.madeWith.actual;
+    const { humanRows, stackRows } = partitionLedgerRows(ledgerRows);
+
+    const hasMoreSynopsis = Boolean(series.synopsisExtended);
+    const synopsisText = synopsisExpanded && hasMoreSynopsis
+      ? `${esc(series.synopsis)} ${esc(series.synopsisExtended)}`
+      : esc(series.synopsis);
 
     root.innerHTML = `
       <div class="detail-view">
@@ -608,127 +804,123 @@
           <button class="glass-icon-btn" type="button" data-action="go-back" aria-label="Back">
             ${ICON_BACK}
           </button>
-          <div class="detail-pill-group">
-            <button class="glass-icon-btn" type="button" style="width:2.25rem;height:2.25rem;border:0;background:transparent;" data-action="toggle-watchlist" data-series="${esc(series.id)}" aria-pressed="${inList}" aria-label="${inList ? "Remove from Library" : "Add to Library"}">
-              ${inList ? ICON_CHECK : ICON_PLUS}
-            </button>
-            <button class="glass-icon-btn" type="button" style="width:2.25rem;height:2.25rem;border:0;background:transparent;" data-action="share-series" data-title="${esc(series.title)}" aria-label="Copy series link">
-              ${ICON_SHARE}
-            </button>
-          </div>
+          <button class="glass-icon-btn" type="button" data-action="share-series" data-title="${esc(series.title)}" aria-label="Copy series link" title="Share series">
+            ${ICON_SHARE}
+          </button>
         </div>
 
-        <section class="detail-hero">
-          <img class="detail-hero-img" src="${esc(series.heroImage)}" alt="${esc(series.title)} backdrop">
-          <div class="hero-scrim"></div>
-          <div class="detail-hero-inner">
-            <span class="hero-eyebrow-pill">${esc(series.eyebrow)}</span>
-            <h1 class="hero-wordmark" data-style="${esc(series.wordmarkStyle)}">${esc(series.title)}</h1>
-            <p class="hero-meta-line" style="margin-bottom:1.1rem;">
-              <span class="tesser-mini-badge">Mweshi</span>
-              <span>&middot;</span>
-              <span>${esc(series.category)}</span>
-            </p>
-            <div class="hero-cta-row" style="margin-bottom:0.5rem;">
-              ${renderSmartPlayPill(series)}
-              <button class="btn-circle-glass" type="button" data-action="toggle-watchlist" data-series="${esc(series.id)}" aria-pressed="${inList}" aria-label="Toggle Library">
-                ${inList ? ICON_CHECK : ICON_PLUS}
+        <div class="detail-hero-outer">
+          <section class="detail-hero">
+            <img class="detail-hero-img" src="${esc(series.heroImage)}" alt="${esc(series.title)} backdrop">
+            <div class="hero-scrim"></div>
+            <div class="detail-hero-inner">
+              <span class="hero-eyebrow-pill">${esc(series.eyebrow)}</span>
+              <h1 class="hero-wordmark" data-style="${esc(series.wordmarkStyle)}">${esc(series.title)}</h1>
+              <p class="hero-meta-line" style="margin-bottom:1rem;">
+                <span>${esc(series.category)}</span>
+                <span>&middot;</span>
+                <span class="tabular">${series.year} &middot; ${series.episodes.length} Episodes (${esc(series.totalRuntimeLabel)})</span>
+              </p>
+              <div class="hero-cta-row">
+                ${renderSmartPlayPill(series)}
+                <button class="btn-circle-glass" type="button" data-action="toggle-watchlist" data-series="${esc(series.id)}" aria-pressed="${inList}" aria-label="${inList ? "Remove from Library" : "Add to Library"}" title="${inList ? "In Library" : "Add to Library"}">
+                  ${inList ? ICON_CHECK : ICON_PLUS}
+                </button>
+                ${
+                  series.pilot && series.pilot.enabled
+                    ? `<button class="btn-vote btn-vote--cinema" style="height:2.85rem;padding:0 1.05rem;" type="button" data-action="toggle-vote" data-series="${esc(series.id)}" aria-pressed="${Store.hasVotedPilot(series.id)}">
+                        ${Store.hasVotedPilot(series.id) ? "✓ Voted" : "▲ Greenlight"}
+                      </button>`
+                    : ""
+                }
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section class="detail-synopsis-wrap">
+          <p class="detail-synopsis">
+            ${synopsisText}
+            ${
+              hasMoreSynopsis
+                ? `<button class="inline-more-btn" type="button" data-action="toggle-synopsis">${synopsisExpanded ? "Less" : "More"}</button>`
+                : ""
+            }
+          </p>
+          <div class="spec-strip tabular">
+            ${(series.badges || [])
+              .map(
+                (b) =>
+                  `<span class="spec-badge ${b.includes("C2PA") || b === "PILOT" || b === "UNLISTED" ? "spec-badge--gold" : ""}">${esc(b)}</span>`
+              )
+              .join("")}
+          </div>
+        </section>
+
+        <div class="detail-body">
+          <div class="seg-tabs-scroll">
+            <div class="seg-tabs" role="tablist" aria-label="Series sections">
+              <button class="seg-tab" type="button" role="tab" aria-selected="${detailTab === "episodes"}" data-action="detail-tab" data-tab="episodes">
+                Season 1 (${series.episodes.length})
               </button>
               ${
-                series.pilot && series.pilot.enabled
-                  ? `<button class="btn-vote" style="height:2.95rem;padding:0 1.05rem;" type="button" data-action="toggle-vote" data-series="${esc(series.id)}" aria-pressed="${Store.hasVotedPilot(series.id)}">
-                      ${Store.hasVotedPilot(series.id) ? "✓ Voted" : "▲ Greenlight"}
+                series.alternateEpisodes && series.alternateEpisodes.length
+                  ? `<button class="seg-tab" type="button" role="tab" aria-selected="${detailTab === "alt"}" data-action="detail-tab" data-tab="alt">
+                      Alternate Timeline (${series.alternateEpisodes.length})
+                    </button>`
+                  : ""
+              }
+              ${
+                seriesReels.length
+                  ? `<button class="seg-tab" type="button" role="tab" aria-selected="${detailTab === "reels"}" data-action="detail-tab" data-tab="reels">
+                      Scene Reels (${seriesReels.length})
                     </button>`
                   : ""
               }
             </div>
           </div>
-        </section>
-
-        <section class="detail-synopsis-wrap">
-          <p class="detail-synopsis ${synopsisExpanded ? "" : "clamped"}">
-            ${esc(series.synopsis)} ${synopsisExpanded && series.synopsisExtended ? esc(series.synopsisExtended) : ""}
-          </p>
-          <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.75rem;">
-            <div class="spec-strip tabular">
-              <span>${series.year}</span>
-              <span>&middot;</span>
-              <span>${series.episodes.length} Episodes (${esc(series.totalRuntimeLabel)})</span>
-              ${(series.badges || [])
-                .map(
-                  (b) =>
-                    `<span class="spec-badge ${b.includes("C2PA") || b === "PILOT" || b === "UNLISTED" ? "spec-badge--gold" : ""}">${esc(b)}</span>`
-                )
-                .join("")}
-            </div>
-            <button class="more-pill" type="button" data-action="toggle-synopsis">
-              ${synopsisExpanded ? "LESS" : "MORE"}
-            </button>
-          </div>
-        </section>
-
-        <div class="detail-body">
-          <div class="seg-tabs" role="tablist" aria-label="Series sections">
-            <button class="seg-tab" type="button" role="tab" aria-selected="${detailTab === "episodes"}" data-action="detail-tab" data-tab="episodes">
-              Season 1 (${series.episodes.length})
-            </button>
-            ${
-              series.alternateEpisodes && series.alternateEpisodes.length
-                ? `<button class="seg-tab" type="button" role="tab" aria-selected="${detailTab === "alt"}" data-action="detail-tab" data-tab="alt">
-                    Alternate Timeline (${series.alternateEpisodes.length})
-                  </button>`
-                : ""
-            }
-            ${
-              seriesReels.length
-                ? `<button class="seg-tab" type="button" role="tab" aria-selected="${detailTab === "reels"}" data-action="detail-tab" data-tab="reels">
-                    Scene Reels (${seriesReels.length})
-                  </button>`
-                : ""
-            }
-          </div>
 
           ${activeTabContent}
 
-          <!-- Apple TV "How to Watch" Box (Screenshot #2) -->
+          <!-- How to Watch Box (Bespoke Aperture M Emblem) -->
           <div class="how-to-watch-box">
             <div class="htw-left">
-              <div class="htw-app-icon"><span style="color:var(--provenance);">●</span>&nbsp;T</div>
-              <div>
-                <div style="font-size:var(--text-sm);font-weight:var(--w-semibold);">
+              <div class="htw-app-icon">${ICON_APERTURE_M}</div>
+              <div style="min-width:0;">
+                <div style="font-size:var(--text-sm);font-weight:var(--w-semibold);color:var(--ink);">
                   ${series.isUnlistedScreener ? "Private Unlisted Creator Screener" : "Stream on Mweshi · Open Architecture Demo"}
                 </div>
                 <div style="font-size:var(--text-xs);color:var(--ink-muted);">
                   ${
                     series.isUnlistedScreener
                       ? "Prepared solely for creator preview. Zero rights claimed without your sign-off."
-                      : "Sequential episodes, saved inline resume timestamps, and full Made With provenance."
+                      : "Sequential episodes, saved inline resume timestamps, and transparent Made With provenance."
                   }
                 </div>
               </div>
             </div>
             ${
               series.isUnlistedScreener
-                ? `<a class="btn-play-white" style="height:2.4rem;min-width:auto;padding:0 1rem;font-size:var(--text-xs);" href="#/creators">Reply / Claim Series</a>`
-                : `<button class="glass-chip" type="button" data-action="play-series" data-series="${esc(series.slug)}">Play Now</button>`
+                ? `<a class="btn-primary" style="height:2.4rem;padding:0 1rem;font-size:var(--text-xs);" href="#/creators">Reply / Claim Series</a>`
+                : `<button class="btn-primary" style="height:2.4rem;padding:0 1.05rem;font-size:var(--text-xs);" type="button" data-action="play-series" data-series="${esc(series.slug)}">Play Now</button>`
             }
           </div>
 
-          <!-- Mweshi's Signature "Made With & Provenance" Ledger (Screenshots #2 & #3 Typography) -->
-          <section class="ledger-section" aria-labelledby="ledger-madewith">
+          <!-- Signature Two-Column "Made With & Provenance" Dossier -->
+          <section class="provenance-dossier" aria-labelledby="ledger-madewith">
             <div class="ledger-head">
               <h2 class="ledger-title" id="ledger-madewith">Made With &amp; Provenance</h2>
               <div class="seg-tabs" style="margin-bottom:0;">
                 <button class="seg-tab" type="button" aria-selected="${detailLedgerMode === "actual"}" data-action="ledger-mode" data-mode="actual">
-                  Actual Demo Credits
+                  Actual Credits
                 </button>
                 <button class="seg-tab" type="button" aria-selected="${detailLedgerMode === "aispec"}" data-action="ledger-mode" data-mode="aispec">
-                  AI Series Spec Preview
+                  AI Series Spec
                 </button>
               </div>
             </div>
 
-            <p style="margin:0 0 1.15rem;padding:0.75rem 0.95rem;border-radius:var(--r-sm);background:var(--surface-1);border-left:2px solid var(--provenance);font-size:var(--text-xs);color:var(--ink-secondary);line-height:1.5;">
+            <p class="provenance-notice">
               ${
                 detailLedgerMode === "aispec"
                   ? "Previewing Mweshi's native AI Series Provenance Schema: every AI-made show on Mweshi credits both the human filmmakers (writing, voice, editorial hours) and the exact generative models used."
@@ -736,60 +928,79 @@
               }
             </p>
 
-            <dl class="ledger-dl">
-              ${ledgerRows
-                .map(
-                  (row) => `
-                <div class="ledger-item">
-                  <dt>${esc(row.label)}</dt>
-                  <dd>${esc(row.value)}</dd>
+            <div class="dossier-columns">
+              <div>
+                <h3 class="dossier-group-label">Human Craft &amp; Creative Team</h3>
+                <dl class="ledger-dl">
+                  ${humanRows
+                    .map(
+                      (row) => `
+                    <div class="ledger-item">
+                      <dt>${esc(row.label)}</dt>
+                      <dd>${esc(row.value)}</dd>
+                    </div>
+                  `
+                    )
+                    .join("")}
+                </dl>
+              </div>
+              <div>
+                <h3 class="dossier-group-label">Pipeline, Stack &amp; Verification</h3>
+                <dl class="ledger-dl">
+                  ${stackRows
+                    .map(
+                      (row) => `
+                    <div class="ledger-item">
+                      <dt>${esc(row.label)}</dt>
+                      <dd>${esc(row.value)}</dd>
+                    </div>
+                  `
+                    )
+                    .join("")}
+                </dl>
+              </div>
+            </div>
+          </section>
+
+          <!-- Compact 3-Column Desktop / Native Accordion Mobile Metadata -->
+          <div class="detail-meta-grid">
+            <details class="meta-panel" ${isDesktop ? "open" : ""}>
+              <summary>Information</summary>
+              <div class="meta-panel-body">
+                <dl class="ledger-dl">
+                  <div class="ledger-item"><dt>Studio</dt><dd>${esc(series.studio)}</dd></div>
+                  <div class="ledger-item"><dt>Released</dt><dd class="tabular">${series.year}</dd></div>
+                  <div class="ledger-item"><dt>Run Time</dt><dd class="tabular">${series.episodes.length} Episodes (${esc(series.totalRuntimeLabel)})</dd></div>
+                  <div class="ledger-item"><dt>Rated &amp; Origin</dt><dd>${esc(series.rating)} &middot; ${esc(series.region)}</dd></div>
+                </dl>
+              </div>
+            </details>
+
+            <details class="meta-panel" ${isDesktop ? "open" : ""}>
+              <summary>Languages</summary>
+              <div class="meta-panel-body">
+                <dl class="ledger-dl">
+                  <div class="ledger-item"><dt>Original Audio</dt><dd>${esc(series.languages.originalAudio)}</dd></div>
+                  <div class="ledger-item"><dt>Audio</dt><dd>${esc(series.languages.audio)}</dd></div>
+                  <div class="ledger-item"><dt>Subtitles</dt><dd>${esc(series.languages.subtitles)}</dd></div>
+                </dl>
+              </div>
+            </details>
+
+            <details class="meta-panel" ${isDesktop ? "open" : ""}>
+              <summary>Accessibility</summary>
+              <div class="meta-panel-body">
+                <div class="a11y-block">
+                  <span class="spec-badge">SDH</span>
+                  <p>Subtitles for the Deaf and Hard-of-Hearing include dialogue plus relevant sound cues.</p>
                 </div>
-              `
-                )
-                .join("")}
-            </dl>
-          </section>
-
-          <!-- Apple TV "Information" Ledger (Screenshot #3) -->
-          <section class="ledger-section" aria-labelledby="ledger-info">
-            <div class="ledger-head">
-              <h2 class="ledger-title" id="ledger-info">Information</h2>
-            </div>
-            <dl class="ledger-dl">
-              <div class="ledger-item"><dt>Studio</dt><dd>${esc(series.studio)}</dd></div>
-              <div class="ledger-item"><dt>Released</dt><dd class="tabular">${series.year}</dd></div>
-              <div class="ledger-item"><dt>Run Time</dt><dd class="tabular">${series.episodes.length} Episodes (${esc(series.totalRuntimeLabel)})</dd></div>
-              <div class="ledger-item"><dt>Rated</dt><dd>${esc(series.rating)}</dd></div>
-              <div class="ledger-item"><dt>Region of Origin</dt><dd>${esc(series.region)}</dd></div>
-            </dl>
-          </section>
-
-          <!-- Apple TV "Languages" Ledger (Screenshot #3) -->
-          <section class="ledger-section" aria-labelledby="ledger-lang">
-            <div class="ledger-head">
-              <h2 class="ledger-title" id="ledger-lang">Languages</h2>
-            </div>
-            <dl class="ledger-dl">
-              <div class="ledger-item"><dt>Original Audio</dt><dd>${esc(series.languages.originalAudio)}</dd></div>
-              <div class="ledger-item"><dt>Audio</dt><dd>${esc(series.languages.audio)}</dd></div>
-              <div class="ledger-item"><dt>Subtitles</dt><dd>${esc(series.languages.subtitles)}</dd></div>
-            </dl>
-          </section>
-
-          <!-- Apple TV "Accessibility" Ledger (Screenshot #3) -->
-          <section class="ledger-section" aria-labelledby="ledger-a11y">
-            <div class="ledger-head">
-              <h2 class="ledger-title" id="ledger-a11y">Accessibility</h2>
-            </div>
-            <div class="a11y-block">
-              <span class="spec-badge">SDH</span>
-              <p>Subtitles for the Deaf and Hard-of-Hearing (SDH) refer to subtitles in the original language with the addition of relevant non-dialogue information.</p>
-            </div>
-            <div class="a11y-block">
-              <span class="spec-badge">AD</span>
-              <p>Audio descriptions (AD) refer to a narration track describing what is happening on screen, to provide context for those who are blind or have low vision.</p>
-            </div>
-          </section>
+                <div class="a11y-block">
+                  <span class="spec-badge">AD</span>
+                  <p>Audio descriptions narrate key visual scenes for viewers who are blind or have low vision.</p>
+                </div>
+              </div>
+            </details>
+          </div>
         </div>
         ${renderFooter()}
       </div>
@@ -808,6 +1019,8 @@
       pct = 100;
     }
 
+    const titleLabel = isAlt ? `${ep.branchLabel || "Cut"}: ${ep.title}` : `${ep.number}. ${ep.title}`;
+
     return `
       <button class="ep-card" type="button" data-action="play-episode" data-series="${esc(series.slug)}" data-ep="${esc(ep.id)}" data-alt="${isAlt ? "1" : "0"}">
         <div class="ep-card-thumb">
@@ -815,20 +1028,20 @@
           ${pct > 0 ? `<div class="ep-card-progress"><span style="width:${pct}%"></span></div>` : ""}
         </div>
         <div class="ep-card-info">
-          <p class="ep-card-eyebrow tabular">
-            ${isAlt ? esc(ep.branchLabel || "Alternate Cut") : `S${ep.season}, E${ep.number}`} &middot; ${formatDurationHuman(ep.durationSec)}
-          </p>
-          <h3 class="ep-card-title">${esc(ep.title)}</h3>
+          <div class="ep-card-top">
+            <h3 class="ep-card-title">${esc(titleLabel)}</h3>
+            <span class="ep-card-dur tabular">${formatDurationHuman(ep.durationSec)}</span>
+          </div>
           <p class="ep-card-desc">${esc(ep.synopsis)}</p>
         </div>
       </button>
     `;
   }
 
-  /* ---------- View 3: Netflix-Style Vertical 9:16 Reels Feed (`#/reels`) ---------- */
+  /* ---------- View 3: Immersive Darkroom Vertical 9:16 Reels Feed (`#/reels`) ---------- */
 
   function renderReelsView(queryParams) {
-    clearInterval(heroTimer);
+    stopHeroRotation();
     disconnectReelsObserver();
 
     const targetReelId = queryParams.get("reel");
@@ -841,6 +1054,8 @@
       }
     }
 
+    const total = orderedReels.length;
+
     root.innerHTML = `
       <section class="reels-stage" id="reels-stage" aria-label="Vertical Scene Reels Discovery">
         ${orderedReels
@@ -849,46 +1064,65 @@
             const inList = series ? Store.isInWatchlist(series.id) : false;
             const mediaSrc = `${reel.streamUrl}#t=${reel.startSec},${reel.endSec}`;
             return `
-              <article class="reel-slide" data-reel-id="${esc(reel.id)}" data-start="${reel.startSec}" data-end="${reel.endSec}">
-                <div class="reel-frame">
-                  <video class="reel-video" playsinline preload="${idx === 0 ? "auto" : "none"}" poster="${esc(reel.poster)}" ${reelsMuted ? "muted" : ""} data-src="${esc(mediaSrc)}" ${idx === 0 ? `src="${esc(mediaSrc)}"` : ""}></video>
-                  <div class="reel-scrim"></div>
-                  <div class="reel-overlay">
-                    <div class="reel-info">
-                      <div class="reel-tag">
-                        <span class="tesser-mini-badge">Mweshi</span>
-                        <span>&middot;</span>
-                        <span>${esc(reel.tag)}</span>
+              <article class="reel-slide" data-reel-index="${idx}" data-reel-id="${esc(reel.id)}" data-start="${reel.startSec}" data-end="${reel.endSec}">
+                <div class="reel-stage-inner">
+                  <div class="reel-frame">
+                    <video class="reel-video" playsinline preload="${idx === 0 ? "auto" : "none"}" poster="${esc(reel.poster)}" ${reelsMuted ? "muted" : ""} data-src="${esc(mediaSrc)}" ${idx === 0 ? `src="${esc(mediaSrc)}"` : ""}></video>
+                    <div class="reel-scrim"></div>
+                    <div class="reel-counter-pill tabular" aria-label="Reel ${idx + 1} of ${total}">${idx + 1} / ${total}</div>
+
+                    <div class="reel-overlay">
+                      <div class="reel-info">
+                        <div class="reel-tag">${esc(reel.tag)}</div>
+                        <h2 class="reel-title">${esc(reel.title)}</h2>
+                        <p class="reel-hook">${esc(reel.hook)}</p>
+                        <div style="display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap;">
+                          <button class="btn-play-white" style="height:2.55rem;min-width:auto;padding:0 1.1rem;font-size:var(--text-xs);" type="button" data-action="play-episode" data-series="${esc(reel.seriesId)}" data-ep="${esc(reel.episodeId)}">
+                            ${ICON_PLAY}
+                            <span>Watch Full Episode</span>
+                          </button>
+                          <a class="glass-chip glass-chip--cinema" style="height:2.55rem;padding:0 0.95rem;" href="#/series/${esc(reel.seriesId)}">
+                            All Episodes
+                          </a>
+                        </div>
                       </div>
-                      <h2 class="reel-title">${esc(reel.title)}</h2>
-                      <p class="reel-hook">${esc(reel.hook)}</p>
-                      <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">
-                        <button class="btn-play-white" style="height:2.6rem;min-width:auto;padding:0 1.15rem;font-size:var(--text-sm);" type="button" data-action="play-episode" data-series="${esc(reel.seriesId)}" data-ep="${esc(reel.episodeId)}">
-                          ${ICON_PLAY}
-                          <span>Watch Full Episode</span>
-                        </button>
-                        <a class="glass-chip" style="height:2.6rem;padding:0 0.95rem;" href="#/series/${esc(reel.seriesId)}">
-                          All Episodes
-                        </a>
+
+                      <div class="reel-rail-actions">
+                        <div class="reel-action-group">
+                          <button class="glass-icon-btn" type="button" data-action="toggle-reels-mute" aria-label="${reelsMuted ? "Unmute sound" : "Mute sound"}">
+                            <span data-mute-icon style="display:inline-flex;width:1.15rem;height:1.15rem;">${reelsMuted ? ICON_VOL_OFF : ICON_VOL_ON}</span>
+                          </button>
+                          <span class="reel-action-label" data-mute-text>${reelsMuted ? "Muted" : "Sound"}</span>
+                        </div>
+
+                        <div class="reel-action-group">
+                          <button class="glass-icon-btn" type="button" data-action="toggle-watchlist" data-series="${esc(reel.seriesId)}" aria-pressed="${inList}" aria-label="${inList ? "Remove from Library" : "Save series"}">
+                            ${inList ? ICON_CHECK : ICON_PLUS}
+                          </button>
+                          <span class="reel-action-label">${inList ? "Saved" : "My List"}</span>
+                        </div>
+
+                        <div class="reel-action-group">
+                          <button class="glass-icon-btn" type="button" data-action="open-provenance-sheet" data-series="${esc(reel.seriesId)}" aria-label="Made With Provenance">
+                            ${ICON_INFO}
+                          </button>
+                          <span class="reel-action-label">Made With</span>
+                        </div>
                       </div>
                     </div>
 
-                    <div class="reel-rail-actions">
-                      <button class="glass-icon-btn" type="button" data-action="toggle-reels-mute" aria-label="Toggle sound">
-                        <span data-mute-label style="font-size:0.7rem;font-weight:600;">${reelsMuted ? "MUTE" : "SOUND"}</span>
-                      </button>
-                      <span class="reel-action-label">${reelsMuted ? "Tap Sound" : "Live"}</span>
-
-                      <button class="glass-icon-btn" type="button" data-action="toggle-watchlist" data-series="${esc(reel.seriesId)}" aria-pressed="${inList}" aria-label="Save series">
-                        ${inList ? ICON_CHECK : ICON_PLUS}
-                      </button>
-                      <span class="reel-action-label">${inList ? "Saved" : "My List"}</span>
-
-                      <button class="glass-icon-btn" type="button" data-action="open-provenance-sheet" data-series="${esc(reel.seriesId)}" aria-label="Made With Provenance">
-                        ${ICON_INFO}
-                      </button>
-                      <span class="reel-action-label">Made With</span>
+                    <div class="reel-progress-track" aria-hidden="true">
+                      <div class="reel-progress-fill" data-reel-progress></div>
                     </div>
+                  </div>
+
+                  <div class="reel-desktop-nav" aria-label="Reel navigation">
+                    <button class="glass-icon-btn" type="button" data-action="reel-step" data-step="-1" aria-label="Previous reel" ${idx === 0 ? "disabled style='opacity:0.35;cursor:default;'" : ""}>
+                      ${ICON_CHEVRON_UP}
+                    </button>
+                    <button class="glass-icon-btn" type="button" data-action="reel-step" data-step="1" aria-label="Next reel" ${idx === total - 1 ? "disabled style='opacity:0.35;cursor:default;'" : ""}>
+                      ${ICON_CHEVRON_DOWN}
+                    </button>
                   </div>
                 </div>
               </article>
@@ -901,23 +1135,41 @@
     setupReelsObserver();
   }
 
+  function stepReel(delta) {
+    const stage = document.getElementById("reels-stage");
+    if (!stage) return;
+    const slideH = stage.clientHeight || window.innerHeight;
+    const current = Math.round(stage.scrollTop / slideH);
+    const slides = stage.querySelectorAll(".reel-slide");
+    const target = Math.max(0, Math.min(slides.length - 1, current + delta));
+    if (slides[target]) {
+      slides[target].scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
   function setupReelsObserver() {
     const slides = document.querySelectorAll(".reel-slide");
     if (!slides.length) return;
 
     slides.forEach((slide) => {
       const vid = slide.querySelector("video");
+      const progressFill = slide.querySelector("[data-reel-progress]");
       const start = Number(slide.dataset.start) || 0;
       const end = Number(slide.dataset.end) || start + 30;
+      const span = Math.max(1, end - start);
       if (!vid) return;
 
       vid.addEventListener("loadedmetadata", () => {
         if (vid.currentTime < start || vid.currentTime >= end) {
-          vid.currentTime = start;
+          try { vid.currentTime = start; } catch (_) {}
         }
       });
 
       vid.addEventListener("timeupdate", () => {
+        if (progressFill) {
+          const pct = Math.max(0, Math.min(100, ((vid.currentTime - start) / span) * 100));
+          progressFill.style.width = `${pct}%`;
+        }
         if (vid.currentTime >= end) {
           vid.currentTime = start;
           vid.play().catch(() => {});
@@ -973,26 +1225,26 @@
   /* ---------- View 4: Pilot Season Slate (`#/pilots`) ---------- */
 
   function renderPilotsView() {
-    clearInterval(heroTimer);
+    stopHeroRotation();
     const pilots = Catalog.series.filter((s) => s.pilot && s.pilot.enabled);
     root.innerHTML = `
       <div class="page-shell">
         <span class="hero-eyebrow-pill">Audience Greenlight Program</span>
         <h1 class="page-title">Pilot Season</h1>
         <p class="page-lede">
-          Great AI storytellers shouldn't have to guess whether Episode 2 is worth sixty hours of generation and editing. Creators premiere Pilot Episode 1 here; viewers watch and cast 1-per-account greenlight votes to fund full seasons.
+          Great AI storytellers shouldn't have to guess whether Episode 2 is worth sixty hours of generation and editing. Creators premiere Pilot Episode 1 here; viewers watch and cast 1-per-account greenlight votes to back full seasons.
         </p>
 
-        <div class="creator-grid" style="margin-bottom:2.5rem;">
+        <div class="pilot-grid">
           ${pilots.map(renderPilotCard).join("")}
         </div>
 
         <div class="glass-panel">
           <h2>Making a serialized AI pilot?</h2>
-          <p style="color:var(--ink-secondary);font-size:var(--text-sm);max-width:42rem;margin:0 0 1rem;">
+          <p style="color:var(--ink-secondary);font-size:var(--text-sm);max-width:44rem;margin:0 0 1.1rem;">
             Keep 100% of your IP, keep posting short vertical hooks on TikTok, Reels, and YouTube Shorts, and make Mweshi the home where viewers binge full episodes in sequence.
           </p>
-          <a class="btn-play-white" style="height:2.65rem;font-size:var(--text-sm);" href="#/creators">Submit a Pilot or Preview Screener</a>
+          <a class="btn-primary" href="#/creators">Apply for the Founding Slate</a>
         </div>
       </div>
       ${renderFooter()}
@@ -1002,19 +1254,22 @@
   /* ---------- View 5: Library (`#/library`) ---------- */
 
   function renderLibraryView() {
-    clearInterval(heroTimer);
+    stopHeroRotation();
     const st = Store.getState();
     const savedSeries = st.watchlist.map(resolveSeries).filter(Boolean);
     const cwList = Store.getContinueWatchingList();
 
     root.innerHTML = `
       <div class="page-shell">
-        <div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:1rem;">
+        <div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:1rem;margin-bottom:1.5rem;">
           <div>
             <h1 class="page-title">Library</h1>
-            <p class="page-lede">Your saved Watchlist, Continue Watching timestamps, and private creator screeners.</p>
+            <p class="page-lede" style="margin-bottom:0;">Your saved Watchlist and Continue Watching progress, stored privately in this browser.</p>
           </div>
-          <button class="glass-chip" type="button" data-action="reset-progress">Reset Demo Progress</button>
+          <div style="display:flex;flex-wrap:wrap;gap:0.55rem;">
+            <button class="glass-chip" type="button" data-action="open-cloud-sheet">Storage Info</button>
+            <button class="glass-chip" type="button" data-action="reset-progress">Reset Demo Progress</button>
+          </div>
         </div>
 
         ${
@@ -1037,30 +1292,6 @@
                 <a class="glass-chip" href="#/">Browse Premiere Slate</a>
               </div>`
         }
-
-        ${
-          st.screeners.length
-            ? `
-          <h2 class="rail-title" style="margin:0 0 0.9rem;">Generated TikTok / Creator Screeners</h2>
-          <div class="creator-grid">
-            ${st.screeners
-              .map(
-                (sc) => `
-              <div class="glass-panel">
-                <div style="font-size:var(--text-xs);color:var(--provenance);margin-bottom:0.25rem;">Unlisted Screener</div>
-                <h3 style="margin:0 0 0.35rem;">${esc(sc.title)}</h3>
-                <p style="margin:0 0 0.85rem;font-size:var(--text-xs);color:var(--ink-muted);">Prepared for ${esc(sc.creator)}</p>
-                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-                  <a class="glass-chip" href="${esc(sc.url)}">Open Screener</a>
-                </div>
-              </div>
-            `
-              )
-              .join("")}
-          </div>
-        `
-            : ""
-        }
       </div>
       ${renderFooter()}
     `;
@@ -1069,7 +1300,7 @@
   /* ---------- View 6: Search (`#/search`) ---------- */
 
   function renderSearchView() {
-    clearInterval(heroTimer);
+    stopHeroRotation();
     const q = searchQuery.trim().toLowerCase();
     const matches = !q
       ? Catalog.series
@@ -1090,7 +1321,7 @@
     root.innerHTML = `
       <div class="page-shell">
         <h1 class="page-title">Search</h1>
-        <p class="page-lede">Search series, episode titles, Amsterdam crew credits, or genres.</p>
+        <p class="page-lede">Search series, episode titles, crew credits, or genres.</p>
 
         <div class="search-bar-box">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.2" y2="16.2"/></svg>
@@ -1140,38 +1371,60 @@
     }
   }
 
-  /* ---------- View 7: For Creators & TikTok DM Screener Builder (`#/creators`) ---------- */
+  /* ---------- View 7: Public For Creators (`#/creators`) — Clean mailto + Copy Summary ---------- */
+
+  function buildPitchConfirmationHTML(draft) {
+    return `
+      <div class="pitch-confirm-box" id="pitch-confirm-box">
+        <div style="font-size:var(--text-xs);font-weight:var(--w-semibold);color:var(--provenance);letter-spacing:0.06em;text-transform:uppercase;">
+          Pitch Ready to Send
+        </div>
+        <p style="margin:0;font-size:var(--text-sm);color:var(--ink);line-height:1.5;">
+          Your pitch summary is saved locally. Open a pre-filled email draft to <strong>hello@mweshi.com</strong> or copy the formatted summary below:
+        </p>
+        <div style="display:flex;flex-wrap:wrap;gap:0.6rem;">
+          <a class="btn-primary" style="height:2.55rem;padding:0 1.15rem;font-size:var(--text-xs);" href="${esc(draft.mailtoHref)}">
+            Open Email Draft (hello@mweshi.com)
+          </a>
+          <button class="glass-chip" type="button" id="copy-pitch-summary-btn" style="height:2.55rem;">
+            Copy Pitch Summary
+          </button>
+        </div>
+        <pre style="margin:0;padding:0.75rem;border-radius:var(--r-sm);background:var(--bg);border:1px solid var(--hairline);font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:0.74rem;color:var(--ink-secondary);white-space:pre-wrap;word-break:break-word;">${esc(draft.summaryText)}</pre>
+      </div>
+    `;
+  }
 
   function renderCreatorsView() {
-    clearInterval(heroTimer);
+    stopHeroRotation();
     root.innerHTML = `
       <div class="page-shell">
         <span class="hero-eyebrow-pill">Founding Cohort &middot; Co-Written Terms</span>
         <h1 class="page-title">A cinema home for serialized AI storytellers.</h1>
         <p class="page-lede">
-          Short-form feeds reward five-second hooks, then bury Episode 3 behind unrelated clips. Mweshi gives your world an Apple TV-grade series page: seasons in sequence, vertical Reels that funnel straight into Episode 1, and transparent provenance.
+          Short-form feeds reward five-second hooks, then bury Episode 3 behind unrelated clips. Mweshi gives your world a dedicated cinema series page: seasons in sequence, vertical Reels that funnel straight into Episode 1, and transparent provenance.
         </p>
 
-        <div class="creator-grid" style="margin-bottom:2rem;">
+        <div class="creator-grid">
           <section class="glass-panel">
             <h2>Founding Creator Terms</h2>
             <ul class="clean-list">
               <li><strong>100% Creator-Owned IP</strong> &mdash; You keep your characters, world, and adaptation rights. Always.</li>
               <li><strong>Non-Exclusive Social Funnel</strong> &mdash; Keep posting vertical hooks on TikTok, Reels, X, and YouTube Shorts to drive viewers into your full series.</li>
               <li><strong>Co-Written Founding Terms</strong> &mdash; Revenue share, compute support, and premiere windows are being shaped directly with our first cohort rather than handed down.</li>
-              <li><strong>Honest Made-With Ledger</strong> &mdash; Every title credits your human writing, voice cast, editorial hours, and generative stack openly.</li>
+              <li><strong>Honest Made-With Dossier</strong> &mdash; Every title credits your human writing, voice cast, editorial hours, and generative stack openly.</li>
             </ul>
-            <div style="margin-top:1.15rem;display:flex;gap:0.65rem;flex-wrap:wrap;">
-              <a class="glass-chip" href="letter/">Read Victor's Founder Letter &rarr;</a>
-              <span class="glass-chip">Reply in the Facebook chat that sent you here</span>
+            <div style="margin-top:1.25rem;display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;">
+              <a class="btn-primary" style="height:2.45rem;padding:0 1.1rem;font-size:var(--text-xs);" href="mailto:hello@mweshi.com?subject=${encodeURIComponent("Mweshi Founding Creator Inquiry")}">Email hello@mweshi.com</a>
+              <button class="glass-chip" type="button" data-action="copy-email" style="height:2.45rem;">Copy Email</button>
+              <a class="glass-chip" href="letter/" style="height:2.45rem;">Read Founder's Letter &rarr;</a>
             </div>
           </section>
 
-          <!-- Submit Pilot / Book 15-Min Founder Chat (copied for the Facebook reply) -->
           <section class="glass-panel">
             <h2>Submit a Pilot or Book 15 Mins</h2>
             <form class="form-stack" id="creator-pitch-form">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+              <div class="form-row-2">
                 <label>Your Name or Studio *
                   <input type="text" name="creatorName" required maxlength="120" placeholder="e.g. Studio Kora">
                 </label>
@@ -1179,7 +1432,7 @@
                   <input type="email" name="email" required maxlength="200" placeholder="you@domain.com">
                 </label>
               </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+              <div class="form-row-2">
                 <label>Series / Pilot Title
                   <input type="text" name="seriesTitle" maxlength="200" placeholder="e.g. Glass Meridian">
                 </label>
@@ -1191,28 +1444,112 @@
                 <input type="url" name="pilotUrl" maxlength="500" placeholder="https://...">
               </label>
               <label>Tools &amp; Human Workflow (for your Made With card)
-                <input type="text" name="toolsUsed" maxlength="400" placeholder="e.g. Kling 2.0, Runway, DaVinci Resolve, human voice cast">
+                <input type="text" name="toolsUsed" maxlength="400" placeholder="e.g. Kling, Runway, DaVinci Resolve, human voice cast">
               </label>
               <label>Notes or Preferred 15-Min Chat Window
                 <textarea name="notes" maxlength="1500" placeholder="Tell Victor about your series arc, episode count, or what terms would make Mweshi worth your time."></textarea>
               </label>
-              <button class="btn-play-white" type="submit" style="width:100%;">Send to Founding Slate</button>
+              <button class="btn-primary" type="submit" style="width:100%;">Prepare Pitch for hello@mweshi.com</button>
             </form>
+
+            <div id="pitch-confirm-slot">
+              ${lastPitchDraft ? buildPitchConfirmationHTML(lastPitchDraft) : ""}
+            </div>
           </section>
         </div>
+      </div>
+      ${renderFooter()}
+    `;
 
-        <!-- Private TikTok / YouTube DM Screener Link Generator -->
-        <section class="glass-panel" style="border-color:rgba(217,160,91,0.35);">
-          <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.4rem;">
-            <h2 style="margin:0;">Private Creator Screener Builder (For TikTok &amp; YouTube DMs)</h2>
-            <span class="spec-badge spec-badge--gold">UNLISTED LINK GENERATOR</span>
-          </div>
-          <p style="font-size:var(--text-sm);color:var(--ink-secondary);max-width:52rem;margin:0 0 1.15rem;">
-            Spotted a serialized AI creator on TikTok or YouTube? Paste their handle, series title, and a public YouTube link (or direct MP4) below to generate an <strong>unlisted Apple TV-style series preview URL</strong> you can send in a DM&mdash;clearly labeled as a private preview with zero public claim.
-          </p>
+    bindCreatorPitchForm();
+  }
 
+  function bindPitchCopyButton() {
+    const copyBtn = document.getElementById("copy-pitch-summary-btn");
+    if (copyBtn && lastPitchDraft) {
+      copyBtn.onclick = () => {
+        navigator.clipboard
+          .writeText(lastPitchDraft.summaryText)
+          .then(() => showToast("Pitch summary copied to clipboard"))
+          .catch(() => showToast("Select and copy the summary box below"));
+      };
+    }
+  }
+
+  function bindCreatorPitchForm() {
+    bindPitchCopyButton();
+    const pitchForm = document.getElementById("creator-pitch-form");
+    if (!pitchForm) return;
+
+    pitchForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(pitchForm);
+      const payload = {
+        creatorName: String(fd.get("creatorName") || "").trim(),
+        email: String(fd.get("email") || "").trim(),
+        seriesTitle: String(fd.get("seriesTitle") || "").trim(),
+        channelUrl: String(fd.get("channelUrl") || "").trim(),
+        pilotUrl: String(fd.get("pilotUrl") || "").trim(),
+        toolsUsed: String(fd.get("toolsUsed") || "").trim(),
+        notes: String(fd.get("notes") || "").trim(),
+        preferredTime: ""
+      };
+      await Store.submitCreatorPitch(payload);
+
+      const summaryText = [
+        `Creator / Studio: ${payload.creatorName}`,
+        `Email: ${payload.email}`,
+        payload.seriesTitle ? `Series / Pilot: ${payload.seriesTitle}` : null,
+        payload.channelUrl ? `Channel: ${payload.channelUrl}` : null,
+        payload.pilotUrl ? `Pilot Link: ${payload.pilotUrl}` : null,
+        payload.toolsUsed ? `Tools & Workflow: ${payload.toolsUsed}` : null,
+        "",
+        "Notes:",
+        payload.notes || "(none)"
+      ]
+        .filter((line) => line !== null)
+        .join("\n");
+
+      const subject = payload.seriesTitle
+        ? `Mweshi Founding Creator Pitch — ${payload.seriesTitle}`
+        : `Mweshi Founding Creator Pitch — ${payload.creatorName}`;
+      const mailtoHref = `mailto:hello@mweshi.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(summaryText)}`;
+
+      lastPitchDraft = { summaryText, mailtoHref };
+
+      const slot = document.getElementById("pitch-confirm-slot");
+      if (slot) {
+        slot.innerHTML = buildPitchConfirmationHTML(lastPitchDraft);
+        bindPitchCopyButton();
+        slot.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+
+      pitchForm.reset();
+      showToast("Pitch prepared — open email draft or copy summary");
+    });
+  }
+
+  /* ---------- View 8: Unlisted Founder Studio (`#/studio`) — DM Screener Builder ---------- */
+
+  function renderStudioView() {
+    stopHeroRotation();
+    const st = Store.getState();
+
+    root.innerHTML = `
+      <div class="page-shell">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.5rem;">
+          <span class="hero-eyebrow-pill" style="margin-bottom:0;">Unlisted Founder Tool &middot; #/studio</span>
+          <span class="spec-badge spec-badge--gold">NOT PUBLICLY LINKED</span>
+        </div>
+        <h1 class="page-title">Private Creator Screener Studio</h1>
+        <p class="page-lede">
+          Generate an unlisted cinema-grade preview URL for TikTok, YouTube, or email outreach so creators can experience how their series plays on Mweshi — clearly labeled as a private preview with zero claim on their work.
+        </p>
+
+        <section class="glass-panel" style="margin-bottom:2rem;">
+          <h2>Build Unlisted Screener Link</h2>
           <form class="form-stack" id="screener-builder-form">
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:0.75rem;">
+            <div class="form-row-auto">
               <label>Creator Handle / Name *
                 <input type="text" name="creator" required maxlength="80" placeholder="e.g. @neuralcinema">
               </label>
@@ -1223,7 +1560,7 @@
                 <input type="text" name="genre" maxlength="70" placeholder="Sci-Fi · Thriller · Serialized AI">
               </label>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:0.75rem;">
+            <div class="form-row-2">
               <label>YouTube URL / ID or Direct .mp4 URL *
                 <input type="text" name="video" required placeholder="https://www.youtube.com/watch?v=... or .mp4 URL">
               </label>
@@ -1231,116 +1568,122 @@
                 <input type="text" name="episodes" placeholder="Episode 1: The Signal, Episode 2: Blackout, Episode 3: Protocol">
               </label>
             </div>
-            <label>Short Synopsis / DM Personalization Note
+            <label>Short Synopsis / Personalization Note
               <input type="text" name="synopsis" maxlength="320" placeholder="Optional 1-2 sentence logline for their preview hero...">
             </label>
-            <div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:center;">
-              <button class="btn-play-white" type="submit" style="height:2.7rem;font-size:var(--text-sm);">Generate Unlisted Screener Link</button>
+            <div>
+              <button class="btn-primary" type="submit">Generate Unlisted Screener Link</button>
             </div>
           </form>
 
-          <div id="screener-output" hidden style="margin-top:1.15rem;padding:1rem;border-radius:var(--r-sm);background:var(--bg-elevated);border:0.5px solid var(--hairline-strong);"></div>
+          <div id="screener-output" hidden class="pitch-confirm-box"></div>
         </section>
+
+        ${
+          st.screeners.length
+            ? `
+          <h2 class="rail-title" style="margin:0 0 0.9rem;">Saved Local Screeners (${st.screeners.length})</h2>
+          <div class="creator-grid" style="margin-top:0;">
+            ${st.screeners
+              .map(
+                (sc) => `
+              <div class="glass-panel">
+                <div style="font-size:var(--text-xs);color:var(--provenance);font-weight:600;margin-bottom:0.25rem;">Unlisted Screener</div>
+                <h3 style="margin:0 0 0.3rem;">${esc(sc.title)}</h3>
+                <p style="margin:0 0 0.85rem;font-size:var(--text-xs);color:var(--ink-muted);">Prepared for ${esc(sc.creator)}</p>
+                <a class="glass-chip" href="${esc(sc.url)}">Open Preview Stage</a>
+              </div>
+            `
+              )
+              .join("")}
+          </div>
+        `
+            : ""
+        }
       </div>
       ${renderFooter()}
     `;
 
-    bindCreatorForms();
+    bindStudioForm();
   }
 
-  function bindCreatorForms() {
-    const pitchForm = document.getElementById("creator-pitch-form");
-    if (pitchForm) {
-      pitchForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const fd = new FormData(pitchForm);
-        const payload = {
-          creatorName: fd.get("creatorName"),
-          email: fd.get("email"),
-          seriesTitle: fd.get("seriesTitle"),
-          channelUrl: fd.get("channelUrl"),
-          pilotUrl: fd.get("pilotUrl"),
-          toolsUsed: fd.get("toolsUsed"),
-          notes: fd.get("notes"),
-          preferredTime: ""
-        };
-        await Store.submitCreatorPitch(payload);
-        const reply = [
-          `Creator: ${payload.creatorName}`,
-          `Email: ${payload.email}`,
-          `Channel: ${payload.channelUrl}`,
-          `Pilot Link: ${payload.pilotUrl}`,
-          `Tools: ${payload.toolsUsed}`,
-          "",
-          "Notes:",
-          payload.notes
-        ].join("\n");
-        pitchForm.reset();
-        try {
-          await navigator.clipboard.writeText(reply);
-          showToast("Copied. Paste it into your Facebook chat with Victor.");
-        } catch (_) {
-          showToast("Reply to Victor on Facebook with your series link. This page does not email anyone.");
-        }
-      });
-    }
-
+  function bindStudioForm() {
     const scrForm = document.getElementById("screener-builder-form");
     const scrOut = document.getElementById("screener-output");
-    if (scrForm && scrOut) {
-      scrForm.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const fd = new FormData(scrForm);
-        const epsRaw = String(fd.get("episodes") || "")
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean);
-        const spec = {
-          creator: String(fd.get("creator") || "").trim(),
-          title: String(fd.get("title") || "").trim(),
-          genre: String(fd.get("genre") || "Serialized AI Original").trim(),
-          video: String(fd.get("video") || "").trim(),
-          synopsis: String(fd.get("synopsis") || "").trim(),
-          episodes: epsRaw.length ? epsRaw : ["Episode 1 — Pilot", "Episode 2 — Continuation (Slot)"]
-        };
+    if (!scrForm || !scrOut) return;
 
-        const token = encodeBase64Url(spec);
-        const base = `${window.location.origin}${window.location.pathname}`;
-        const fullUrl = `${base}?screener=${token}#/series/screener`;
+    scrForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const fd = new FormData(scrForm);
+      const epsRaw = String(fd.get("episodes") || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const spec = {
+        creator: String(fd.get("creator") || "").trim(),
+        title: String(fd.get("title") || "").trim(),
+        genre: String(fd.get("genre") || "Serialized AI Original").trim(),
+        video: String(fd.get("video") || "").trim(),
+        synopsis: String(fd.get("synopsis") || "").trim(),
+        episodes: epsRaw.length ? epsRaw : ["Episode 1 — Pilot", "Episode 2 — Continuation (Slot)"]
+      };
 
-        const dmCopy = `Hey ${spec.creator} — been watching "${spec.title}" and loved the worldbuilding. I'm building Mweshi (an Apple TV-style home strictly for serialized AI shows so episodes play in order instead of getting buried in short-form feeds). Put together a private unlisted preview of how "${spec.title}" looks on a cinema stage: ${fullUrl} — zero claim on your work, just wanted to show you and get your take if you have 2 mins.`;
+      const token = encodeBase64Url(spec);
+      const base = `${window.location.origin}${window.location.pathname}`;
+      const fullUrl = `${base}?screener=${token}#/series/screener`;
 
-        Store.saveLocalScreener({
-          slug: `screener-${Date.now()}`,
-          creator: spec.creator,
-          title: spec.title,
-          url: fullUrl
-        });
+      const dmCopy = `Hey ${spec.creator} — been watching "${spec.title}" and loved the worldbuilding. I'm building Mweshi, a dedicated streaming home strictly for serialized AI shows so episodes play in order instead of getting buried in short-form feeds. Put together a private unlisted preview of how "${spec.title}" looks on a cinema stage: ${fullUrl} — zero claim on your work, just wanted to show you and get your take if you have 2 mins.`;
 
-        scrOut.hidden = false;
-        scrOut.innerHTML = `
-          <div style="font-size:var(--text-xs);color:var(--provenance);font-weight:600;margin-bottom:0.4rem;">Private Screener Ready</div>
-          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.85rem;">
-            <input type="text" readonly value="${esc(fullUrl)}" style="flex:1;min-width:14rem;padding:0.55rem 0.75rem;border-radius:8px;background:var(--surface-1);border:0.5px solid var(--hairline);color:var(--ink);font-size:var(--text-xs);">
-            <button class="glass-chip" type="button" id="copy-screener-url">Copy URL</button>
-            <a class="btn-play-white" style="height:2.35rem;min-width:auto;padding:0 1rem;font-size:var(--text-xs);" href="${esc(fullUrl)}">Preview Stage</a>
-          </div>
-          <div style="font-size:var(--text-xs);color:var(--ink-muted);margin-bottom:0.3rem;">Ready-to-paste TikTok / Instagram / X DM:</div>
-          <textarea readonly style="width:100%;min-height:4.6rem;padding:0.65rem;border-radius:8px;background:var(--surface-1);border:0.5px solid var(--hairline);color:var(--ink-secondary);font-size:var(--text-xs);">${esc(dmCopy)}</textarea>
-          <button class="glass-chip" type="button" id="copy-screener-dm" style="margin-top:0.5rem;">Copy DM Script</button>
-        `;
-
-        document.getElementById("copy-screener-url").onclick = () => {
-          navigator.clipboard.writeText(fullUrl).then(() => showToast("Screener link copied"));
-        };
-        document.getElementById("copy-screener-dm").onclick = () => {
-          navigator.clipboard.writeText(dmCopy).then(() => showToast("TikTok DM message copied"));
-        };
+      Store.saveLocalScreener({
+        slug: `screener-${Date.now()}`,
+        creator: spec.creator,
+        title: spec.title,
+        url: fullUrl
       });
-    }
+
+      scrOut.hidden = false;
+      scrOut.innerHTML = `
+        <div style="font-size:var(--text-xs);color:var(--provenance);font-weight:600;">Private Screener Ready</div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <input type="text" readonly value="${esc(fullUrl)}" style="flex:1;min-width:12rem;padding:0.55rem 0.75rem;border-radius:8px;background:var(--bg);border:1px solid var(--hairline-strong);color:var(--ink);font-size:var(--text-xs);">
+          <button class="glass-chip" type="button" id="copy-screener-url">Copy URL</button>
+          <a class="btn-primary" style="height:2.3rem;padding:0 1rem;font-size:var(--text-xs);" href="${esc(fullUrl)}">Preview Stage</a>
+        </div>
+        <div style="font-size:var(--text-xs);color:var(--ink-muted);">Ready-to-paste DM outreach script:</div>
+        <textarea readonly style="width:100%;min-height:4.8rem;padding:0.65rem;border-radius:8px;background:var(--bg);border:1px solid var(--hairline-strong);color:var(--ink-secondary);font-size:var(--text-xs);">${esc(dmCopy)}</textarea>
+        <div><button class="glass-chip" type="button" id="copy-screener-dm">Copy DM Script</button></div>
+      `;
+
+      document.getElementById("copy-screener-url").onclick = () => {
+        navigator.clipboard.writeText(fullUrl).then(() => showToast("Screener link copied"));
+      };
+      document.getElementById("copy-screener-dm").onclick = () => {
+        navigator.clipboard.writeText(dmCopy).then(() => showToast("DM script copied"));
+      };
+    });
   }
 
-  /* ---------- Edge-to-Edge Apple TV Cinema Player ---------- */
+  /* ---------- Edge-to-Edge Cinema Player ---------- */
+
+  function setPlayerStatus(mode, msg) {
+    if (!playerStatusEl) return;
+    if (mode === "hidden") {
+      playerStatusEl.hidden = true;
+      playerStatusEl.classList.remove("is-interactive");
+      return;
+    }
+    playerStatusEl.hidden = false;
+    playerStatusMsg.textContent = msg || "Loading episode stream…";
+    if (mode === "error") {
+      playerSpinnerEl.hidden = true;
+      playerRetryBtn.hidden = false;
+      playerStatusEl.classList.add("is-interactive");
+    } else {
+      playerSpinnerEl.hidden = false;
+      playerRetryBtn.hidden = true;
+      playerStatusEl.classList.remove("is-interactive");
+    }
+  }
 
   function openSeriesPlayback(series) {
     if (!series) return;
@@ -1356,13 +1699,14 @@
   function openEpisodePlayer(series, episode, isAlternate, resumeOffsetSec) {
     if (!series || !episode) return;
     disconnectReelsObserver();
-    clearInterval(heroTimer);
+    stopHeroRotation();
 
     playerSession.open = true;
     playerSession.series = series;
     playerSession.episode = episode;
     playerSession.isAlternate = Boolean(isAlternate);
     playerSession.endedReached = false;
+    playerSession.upnextDismissed = false;
 
     playerModal.hidden = false;
     upnextEl.hidden = true;
@@ -1373,13 +1717,14 @@
       ? `${episode.branchLabel || "Alternate Cut"} · ${episode.title}`
       : `S${episode.season}, E${episode.number} · ${episode.title}`;
 
-    /* Check if this is a YouTube-backed Unlisted Creator Screener */
+    /* YouTube-backed Unlisted Creator Screener */
     if (episode.youtubeId) {
       videoEl.pause();
       videoEl.hidden = true;
       iframeEl.hidden = false;
       playerBottomChrome.hidden = true;
       playerTestEndBtn.hidden = true;
+      setPlayerStatus("hidden");
       iframeEl.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(episode.youtubeId)}?autoplay=1&rel=0&modestbranding=1`;
       return;
     }
@@ -1387,8 +1732,9 @@
     iframeEl.hidden = true;
     iframeEl.src = "";
     videoEl.hidden = false;
+    videoEl.poster = episode.thumb || series.heroImage || "";
     playerBottomChrome.hidden = false;
-    playerTestEndBtn.hidden = false;
+    playerTestEndBtn.hidden = !isDebugMode;
 
     const targetStart = (episode.startSec || 0) + Math.max(0, Math.min((episode.durationSec || 180) - 4, Number(resumeOffsetSec) || 0));
 
@@ -1399,6 +1745,8 @@
       videoEl.play().catch(() => {});
       updatePlayerScrubberUI();
     };
+
+    setPlayerStatus("loading", `Loading ${series.title} · ${episode.title}…`);
 
     if (videoEl.getAttribute("data-src") !== episode.streamUrl) {
       videoEl.setAttribute("data-src", episode.streamUrl);
@@ -1436,7 +1784,15 @@
     playerPlayIcon.innerHTML = videoEl.paused
       ? `<polygon points="7 5 19 12 7 19 7 5"/>`
       : `<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>`;
-    playerMuteBtn.textContent = videoEl.muted ? "Muted" : "Sound On";
+
+    if (playerMuteIcon) {
+      playerMuteIcon.innerHTML = videoEl.muted
+        ? `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>`
+        : `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>`;
+    }
+    if (playerMuteLabel) {
+      playerMuteLabel.textContent = videoEl.muted ? "Muted" : "Sound";
+    }
   }
 
   function showUpNextOverlay() {
@@ -1458,7 +1814,7 @@
     upnextEl.hidden = false;
   }
 
-  function closePlayer() {
+  function closePlayer(skipRouteRender) {
     if (!playerSession.open) return;
     persistCurrentPlayerProgress(false);
     videoEl.pause();
@@ -1466,9 +1822,10 @@
     playerSession.open = false;
     playerModal.hidden = true;
     upnextEl.hidden = true;
+    setPlayerStatus("hidden");
     document.body.style.overflow = "";
     clearTimeout(playerSession.idleTimer);
-    renderRoute();
+    if (!skipRouteRender) renderRoute();
   }
 
   function persistCurrentPlayerProgress(forceComplete) {
@@ -1500,6 +1857,29 @@
   }
 
   function bindPlayerEvents() {
+    videoEl.addEventListener("waiting", () => {
+      if (playerSession.open) setPlayerStatus("loading", "Buffering stream…");
+    });
+    videoEl.addEventListener("canplay", () => {
+      if (playerSession.open) setPlayerStatus("hidden");
+    });
+    videoEl.addEventListener("playing", () => {
+      if (playerSession.open) setPlayerStatus("hidden");
+    });
+    videoEl.addEventListener("error", () => {
+      if (playerSession.open) {
+        setPlayerStatus("error", "The external CC-BY video stream couldn't load right now. Try retrying or check your connection.");
+      }
+    });
+
+    if (playerRetryBtn) {
+      playerRetryBtn.addEventListener("click", () => {
+        if (!playerSession.series || !playerSession.episode) return;
+        videoEl.removeAttribute("data-src");
+        openEpisodePlayer(playerSession.series, playerSession.episode, playerSession.isAlternate, 0);
+      });
+    }
+
     videoEl.addEventListener("timeupdate", () => {
       if (!playerSession.open || !playerSession.episode) return;
       const ep = playerSession.episode;
@@ -1511,18 +1891,16 @@
         persistCurrentPlayerProgress(false);
       }
 
-      /* Reveal Apple TV Screenshot #1 Bottom-Left "Next Episode" Overlay in final 5 seconds */
-      if (videoEl.currentTime >= ep.endSec - 5 && upnextEl.hidden) {
+      if (videoEl.currentTime >= ep.endSec - 5 && upnextEl.hidden && !playerSession.upnextDismissed) {
         showUpNextOverlay();
       }
 
-      /* Cleanly stop at virtual episode end boundary so chapters behave like distinct episodes */
       if (videoEl.currentTime >= ep.endSec && !playerSession.endedReached) {
         playerSession.endedReached = true;
+        playerSession.upnextDismissed = false;
         videoEl.pause();
         const nextEp = getNextSequentialEpisode(playerSession.series, ep, playerSession.isAlternate);
         if (nextEp) {
-          /* Pre-queue next episode at 0s in Continue Watching! */
           Store.saveProgress({
             seriesId: playerSession.series.id,
             episodeId: nextEp.id,
@@ -1552,6 +1930,7 @@
       if (!playerSession.episode) return;
       const target = (playerSession.episode.startSec || 0) + Number(playerScrubber.value);
       playerSession.endedReached = false;
+      playerSession.upnextDismissed = false;
       upnextEl.hidden = true;
       videoEl.currentTime = target;
       updatePlayerScrubberUI();
@@ -1565,6 +1944,7 @@
     playerBack10Btn.addEventListener("click", () => {
       if (!playerSession.episode) return;
       playerSession.endedReached = false;
+      playerSession.upnextDismissed = false;
       upnextEl.hidden = true;
       videoEl.currentTime = Math.max(playerSession.episode.startSec, videoEl.currentTime - 10);
     });
@@ -1582,12 +1962,13 @@
     playerAspectBtn.addEventListener("click", () => {
       const next = playerStage.dataset.aspect === "cinema" ? "feed" : "cinema";
       playerStage.dataset.aspect = next;
-      playerAspectBtn.textContent = next === "cinema" ? "Cinema 16:9" : "Feed 9:16";
+      playerAspectBtn.textContent = next === "cinema" ? "16:9" : "9:16";
     });
 
     playerTestEndBtn.addEventListener("click", () => {
       if (!playerSession.episode) return;
       playerSession.endedReached = false;
+      playerSession.upnextDismissed = false;
       videoEl.currentTime = Math.max(playerSession.episode.startSec, playerSession.episode.endSec - 4.5);
       videoEl.play().catch(() => {});
       showUpNextOverlay();
@@ -1605,13 +1986,20 @@
       if (playerSession.series) openProvenanceSheet(playerSession.series);
     });
 
+    if (upnextDismissBtn) {
+      upnextDismissBtn.addEventListener("click", () => {
+        playerSession.upnextDismissed = true;
+        upnextEl.hidden = true;
+      });
+    }
+
     upnextPlayBtn.addEventListener("click", () => {
       const { series, episode, isAlternate } = playerSession;
       const nextEp = getNextSequentialEpisode(series, episode, isAlternate);
       if (nextEp) {
         openEpisodePlayer(series, nextEp, false, 0);
       } else {
-        closePlayer();
+        closePlayer(false);
       }
     });
 
@@ -1620,42 +2008,58 @@
       openEpisodePlayer(playerSession.series, playerSession.episode, playerSession.isAlternate, 0);
     });
 
-    playerCloseBtn.addEventListener("click", closePlayer);
+    playerCloseBtn.addEventListener("click", () => closePlayer(false));
     playerModal.addEventListener("mousemove", bumpPlayerIdleTimer);
     playerModal.addEventListener("touchstart", bumpPlayerIdleTimer, { passive: true });
 
     window.addEventListener("keydown", (e) => {
-      if (!playerSession.open) return;
-      if (e.key === "Escape") {
-        e.preventDefault();
-        closePlayer();
-      } else if (e.key === " " && document.activeElement.tagName !== "BUTTON") {
-        e.preventDefault();
-        if (videoEl.paused) videoEl.play().catch(() => {});
-        else videoEl.pause();
-      } else if (e.key === "ArrowLeft" && playerSession.episode) {
-        videoEl.currentTime = Math.max(playerSession.episode.startSec, videoEl.currentTime - 10);
-      } else if (e.key === "ArrowRight" && playerSession.episode) {
-        videoEl.currentTime = Math.min(playerSession.episode.endSec - 1, videoEl.currentTime + 10);
-      } else if (e.key.toLowerCase() === "m") {
-        videoEl.muted = !videoEl.muted;
-        updatePlayerScrubberUI();
-      } else if (e.key.toLowerCase() === "f") {
-        playerFsBtn.click();
+      if (playerSession.open) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          closePlayer(false);
+        } else if (e.key === " " && document.activeElement.tagName !== "BUTTON") {
+          e.preventDefault();
+          if (videoEl.paused) videoEl.play().catch(() => {});
+          else videoEl.pause();
+        } else if (e.key === "ArrowLeft" && playerSession.episode) {
+          videoEl.currentTime = Math.max(playerSession.episode.startSec, videoEl.currentTime - 10);
+        } else if (e.key === "ArrowRight" && playerSession.episode) {
+          videoEl.currentTime = Math.min(playerSession.episode.endSec - 1, videoEl.currentTime + 10);
+        } else if (e.key.toLowerCase() === "m") {
+          videoEl.muted = !videoEl.muted;
+          updatePlayerScrubberUI();
+        } else if (e.key.toLowerCase() === "f") {
+          playerFsBtn.click();
+        } else if (e.shiftKey && e.key.toLowerCase() === "e" && playerSession.episode) {
+          playerSession.upnextDismissed = false;
+          showUpNextOverlay();
+        }
+        return;
+      }
+
+      /* Reels keyboard up/down navigation */
+      if (document.body.classList.contains("route-reels")) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          stepReel(1);
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          stepReel(-1);
+        }
       }
     });
   }
 
-  /* ---------- Apple Sheet Modals (Provenance Quick Sheet & local save note) ---------- */
+  /* ---------- Sheet Modals ---------- */
 
   function openProvenanceSheet(series) {
     if (!series || !sheet) return;
     sheetTitle.textContent = `${series.title} · Made With`;
     sheetBody.innerHTML = `
-      <p style="margin:0 0 1rem;font-size:var(--text-xs);color:var(--ink-secondary);line-height:1.5;padding:0.7rem;border-radius:8px;background:var(--bg-elevated);border-left:2px solid var(--provenance);">
+      <p class="provenance-notice" style="margin-bottom:1rem;">
         ${esc(series.madeWith.demoNotice)}
       </p>
-      <dl class="ledger-dl" style="grid-template-columns:1fr;">
+      <dl class="ledger-dl">
         ${series.madeWith.actual
           .map(
             (r) => `
@@ -1675,20 +2079,14 @@
     if (!sheet) return;
     sheetTitle.textContent = "Saved on this browser";
     sheetBody.innerHTML = `
-      <p style="margin:0 0 0.85rem;font-size:var(--text-sm);color:var(--ink-secondary);line-height:1.5;">
-        Continue Watching, your watchlist, pilot votes, and screener links stay in this browser.
+      <p style="margin:0 0 0.85rem;font-size:var(--text-sm);color:var(--ink-secondary);line-height:1.55;">
+        Continue Watching timestamps, your Watchlist, Pilot votes, and theme preference stay privately in this browser's local storage.
       </p>
-      <p style="margin:0;font-size:var(--text-xs);color:var(--ink-muted);line-height:1.5;">
-        Clearing site data for this page removes that history. A creator pitch also opens an email draft so it can reach Victor.
+      <p style="margin:0;font-size:var(--text-xs);color:var(--ink-muted);line-height:1.55;">
+        Clearing site data for this page resets that history. Creator pitches on <strong style="color:var(--ink);">For Creators</strong> prepare a pre-filled email draft to <a href="mailto:hello@mweshi.com" style="color:var(--accent);text-decoration:underline;">hello@mweshi.com</a> alongside a copyable summary.
       </p>
     `;
     sheet.showModal();
-  }
-
-  function updateCloudStatusPill() {
-    if (!cloudLabel || !cloudDot) return;
-    cloudDot.style.background = "#d9a05b";
-    cloudLabel.textContent = "On this browser";
   }
 
   /* ---------- Router & Delegated Actions ---------- */
@@ -1713,10 +2111,12 @@
 
   function renderRoute() {
     disconnectReelsObserver();
+    stopHeroRotation();
+
     const { segments, params } = parseHash();
     const head = segments[0] || "home";
 
-    /* Hide top global chrome on Detail view since Detail renders its own sticky `<` and `↑` glass bar */
+    document.body.classList.toggle("route-reels", head === "reels");
     topChrome.style.display = head === "series" ? "none" : "flex";
 
     if (head === "series" && segments[1]) {
@@ -1749,6 +2149,11 @@
       renderCreatorsView();
       return;
     }
+    if (head === "studio") {
+      updateActiveNav("");
+      renderStudioView();
+      return;
+    }
 
     updateActiveNav("home");
     renderHomeView();
@@ -1761,7 +2166,11 @@
 
     if (action === "hero-dot") {
       heroIndex = Number(btn.dataset.index) || 0;
-      renderHomeView();
+      const featured = Catalog.series.filter((s) => s.featured);
+      updateHeroInPlace(featured);
+      startHeroRotation(featured);
+    } else if (action === "dismiss-launch-strip") {
+      dismissLaunchStrip();
     } else if (action === "play-series") {
       const s = resolveSeries(btn.dataset.series);
       if (s) openSeriesPlayback(s);
@@ -1776,7 +2185,12 @@
     } else if (action === "toggle-watchlist") {
       const added = await Store.toggleWatchlist(btn.dataset.series);
       showToast(added ? "Added to Library" : "Removed from Library");
-      if (!playerSession.open) renderRoute();
+      if (document.getElementById("hero-stage")) {
+        const featured = Catalog.series.filter((s) => s.featured);
+        updateHeroInPlace(featured);
+      } else if (!playerSession.open) {
+        renderRoute();
+      }
     } else if (action === "toggle-vote") {
       const voted = await Store.togglePilotVote(btn.dataset.series);
       showToast(voted ? "Pilot Greenlight vote recorded" : "Vote removed");
@@ -1799,15 +2213,25 @@
         .writeText(url)
         .then(() => showToast("Series link copied to clipboard"))
         .catch(() => showToast(url));
+    } else if (action === "copy-email") {
+      navigator.clipboard
+        .writeText("hello@mweshi.com")
+        .then(() => showToast("Copied hello@mweshi.com"))
+        .catch(() => showToast("hello@mweshi.com"));
     } else if (action === "toggle-reels-mute") {
       reelsMuted = !reelsMuted;
       document.querySelectorAll(".reel-video").forEach((v) => {
         v.muted = reelsMuted;
       });
-      document.querySelectorAll("[data-mute-label]").forEach((el) => {
-        el.textContent = reelsMuted ? "MUTE" : "SOUND";
+      document.querySelectorAll("[data-mute-icon]").forEach((el) => {
+        el.innerHTML = reelsMuted ? ICON_VOL_OFF : ICON_VOL_ON;
       });
-      showToast(reelsMuted ? "Reels muted" : "Reels sound enabled");
+      document.querySelectorAll("[data-mute-text]").forEach((el) => {
+        el.textContent = reelsMuted ? "Muted" : "Sound";
+      });
+      showToast(reelsMuted ? "Reels muted" : "Reels sound on");
+    } else if (action === "reel-step") {
+      stepReel(Number(btn.dataset.step) || 1);
     } else if (action === "open-provenance-sheet") {
       const s = resolveSeries(btn.dataset.series);
       if (s) openProvenanceSheet(s);
@@ -1820,7 +2244,15 @@
     }
   });
 
-  if (cloudBtn) cloudBtn.addEventListener("click", openCloudSyncSheet);
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener("click", () => {
+      const next = Store.getTheme() === "petrol" ? "daylight" : "petrol";
+      Store.setTheme(next);
+      applyTheme(next);
+      showToast(next === "petrol" ? "Midnight Petrol theme" : "Daylight Gallery theme");
+    });
+  }
+
   if (sheetCloseBtn) sheetCloseBtn.addEventListener("click", () => sheet.close());
   if (sheet) {
     sheet.addEventListener("click", (e) => {
@@ -1828,24 +2260,22 @@
     });
   }
 
+  /* Proposal #1: Cleanly close stuck modals and active video player on route change */
   window.addEventListener("hashchange", () => {
+    if (sheet && sheet.open) sheet.close();
+    if (playerSession.open) closePlayer(true);
     detailTab = "episodes";
     synopsisExpanded = false;
     window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
     renderRoute();
   });
 
-  /* Support legacy #creators hash from older outreach emails */
   if (window.location.hash === "#creators") {
     window.location.replace("#/creators");
   }
 
-  Store.subscribe(() => {
-    updateCloudStatusPill();
-  });
-
+  applyTheme(Store.getTheme());
   hydrateScreenerFromQuery();
   bindPlayerEvents();
-  updateCloudStatusPill();
   renderRoute();
 })();
